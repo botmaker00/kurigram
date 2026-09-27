@@ -20,6 +20,17 @@ class RichText(Object):
         self.text = text
         self.type = type
 
+    @staticmethod
+    def _parse(
+        client: "pyrogram.Client" = None,
+        rich_text: Any = None,
+    ) -> Optional["RichText"]:
+        if not rich_text:
+            return None
+        if isinstance(rich_text, RichText):
+            return rich_text
+        return None
+
 
 class RichTextBold(RichText):
     def __init__(self, text: str):

@@ -46,6 +46,36 @@ class RichMessage(Object):
         self.blocks = blocks or []
         self.is_rtl = is_rtl
 
+    @staticmethod
+    def _parse(
+        client: "pyrogram.Client" = None,
+        rich_message: Any = None,
+    ) -> Optional["RichMessage"]:
+        if not rich_message:
+            return None
+
+        if isinstance(rich_message, RichMessage):
+            return rich_message
+
+        blocks = []
+        raw_blocks = getattr(rich_message, "blocks", None) or (
+            rich_message.get("blocks") if isinstance(rich_message, dict) else None
+        )
+        if raw_blocks:
+            for b in raw_blocks:
+                parsed_block = types.RichBlock._parse(client, b) if hasattr(types.RichBlock, "_parse") else b
+                blocks.append(parsed_block)
+
+        is_rtl = getattr(rich_message, "is_rtl", None) or (
+            rich_message.get("is_rtl") if isinstance(rich_message, dict) else None
+        )
+
+        return RichMessage(
+            client=client,
+            blocks=blocks,
+            is_rtl=is_rtl,
+        )
+
 
 class RichMessageButton(Object):
     """Describes a button in a rich formatted message.

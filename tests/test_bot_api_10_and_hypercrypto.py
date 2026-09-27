@@ -298,3 +298,32 @@ def test_client_bot_api_10_methods():
         assert hasattr(app, method), f"Client is missing: {method}"
 
 
+@pytest.mark.asyncio
+async def test_message_parse_and_rich_message_parse():
+    app = Client("test_session")
+    raw_msg = raw.types.Message(
+        id=1,
+        peer_id=raw.types.PeerUser(user_id=123),
+        date=1600000000,
+        message="hello world",
+        entities=[],
+    )
+    users = {123: raw.types.User(id=123, access_hash=0, first_name="Test")}
+    chats = {}
+    parsed = await types.Message._parse(app, raw_msg, users, chats)
+    assert parsed.id == 1
+    assert parsed.text == "hello world"
+    assert parsed.rich_message is None
+
+    empty = raw.types.MessageEmpty(id=2)
+    parsed_empty = await types.Message._parse(app, empty, users, chats)
+    assert parsed_empty.empty is True
+
+    # Test RichMessage._parse
+    assert types.RichMessage._parse(app, None) is None
+    rm = types.RichMessage()
+    assert types.RichMessage._parse(app, rm) is rm
+    parsed_dict = types.RichMessage._parse(app, {"blocks": [], "is_rtl": True})
+    assert parsed_dict.is_rtl is True
+
+

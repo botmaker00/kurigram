@@ -113,6 +113,17 @@ class RichBlock(Object):
         super().__init__(client)
         self.type = type
 
+    @staticmethod
+    def _parse(
+        client: "pyrogram.Client" = None,
+        rich_block: Any = None,
+    ) -> Optional["RichBlock"]:
+        if not rich_block:
+            return None
+        if isinstance(rich_block, RichBlock):
+            return rich_block
+        return None
+
 
 class RichBlockAnchor(RichBlock):
     def __init__(self, *, client: "pyrogram.Client" = None, name: str):

@@ -1785,7 +1785,7 @@ class Message(Object, Update):
             pinned=message.pinned,
             restriction_reason=types.List(
                 types.RestrictionReason._parse(reason)
-                for reason in getattr(message, "restriction_reason", [])
+                for reason in (getattr(message, "restriction_reason", None) or [])
             ) or None,
             fact_check=types.FactCheck._parse(client, message.factcheck, users),
             suggested_post_info=types.SuggestedPostInfo._parse(message.suggested_post),
