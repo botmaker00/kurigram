@@ -27,11 +27,11 @@ try:
 
 
     def ige256_encrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
-        return hypercrypto.ige256_encrypt(data, key, iv)
+        return hypercrypto.ige256_encrypt(bytes(data), bytes(key), bytes(iv))
 
 
     def ige256_decrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
-        return hypercrypto.ige256_decrypt(data, key, iv)
+        return hypercrypto.ige256_decrypt(bytes(data), bytes(key), bytes(iv))
 
 
     def ctr256_encrypt(data: bytes, key: bytes, iv: bytearray, state: bytearray = None) -> bytes:
