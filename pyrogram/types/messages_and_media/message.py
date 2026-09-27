@@ -603,6 +603,24 @@ class Message(Object, Update):
         guest_bot_caller_chat (:obj:`~pyrogram.types.Chat`, *optional*):
             For a message sent by a guest bot, this is the chat whose original message triggered the bot's response.
 
+        receiver_user (:obj:`~pyrogram.types.User`, *optional*):
+            For outgoing ephemeral messages, unique identifier of the user who will receive the message.
+
+        ephemeral_message_id (``int``, *optional*):
+            Identifier of the ephemeral message.
+
+        community_chat_added (:obj:`~pyrogram.types.CommunityChatAdded`, *optional*):
+            Service message: chat added to a community.
+
+        community_chat_removed (:obj:`~pyrogram.types.CommunityChatRemoved`, *optional*):
+            Service message: chat removed from a community.
+
+        community_chat_joined (:obj:`~pyrogram.types.CommunityChatJoined`, *optional*):
+            Service message: user joined a chat that is part of a community.
+
+        unique_gift_info (:obj:`~pyrogram.types.UniqueGiftInfo`, *optional*):
+            Service message: unique gift info.
+
         raw (:obj:`~pyrogram.raw.types.Message`, *optional*):
             The raw message object, as received from the Telegram API.
 
@@ -787,6 +805,12 @@ class Message(Object, Update):
         guest_bot_caller_user: Optional["types.User"] = None,
         guest_bot_caller_chat: Optional["types.Chat"] = None,
         rich_message: Optional["types.RichMessage"] = None,
+        receiver_user: Optional["types.User"] = None,
+        ephemeral_message_id: Optional[int] = None,
+        community_chat_added: Optional["types.CommunityChatAdded"] = None,
+        community_chat_removed: Optional["types.CommunityChatRemoved"] = None,
+        community_chat_joined: Optional["types.CommunityChatJoined"] = None,
+        unique_gift_info: Optional["types.UniqueGiftInfo"] = None,
         raw: Optional["raw.types.Message"] = None
     ):
         super().__init__(client)
@@ -954,6 +978,12 @@ class Message(Object, Update):
         self.guest_bot_caller_user = guest_bot_caller_user
         self.guest_bot_caller_chat = guest_bot_caller_chat
         self.rich_message = rich_message
+        self.receiver_user = receiver_user
+        self.ephemeral_message_id = ephemeral_message_id
+        self.community_chat_added = community_chat_added
+        self.community_chat_removed = community_chat_removed
+        self.community_chat_joined = community_chat_joined
+        self.unique_gift_info = unique_gift_info
         self.raw = raw
 
     @staticmethod
@@ -9051,6 +9081,157 @@ class Message(Object, Update):
         )
 
         return bool(r)
+
+    async def edit_ephemeral_text(
+        self,
+        text: Optional[str] = None,
+        rich_message: Optional[Union["types.InputRichMessage", str, "raw.base.InputRichMessage"]] = None,
+        parse_mode: Optional["enums.ParseMode"] = None,
+        entities: Optional[List["types.MessageEntity"]] = None,
+        link_preview_options: Optional["types.LinkPreviewOptions"] = None,
+        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+    ) -> bool:
+        """Bound method *edit_ephemeral_text* of :obj:`~pyrogram.types.Message`.
+
+        Shortcut for :meth:`~pyrogram.Client.edit_ephemeral_message_text`.
+        """
+        assert self.receiver_user is not None, "This method can be used only if receiver_user is present in the message."
+        assert self.ephemeral_message_id is not None, "This method can be used only if ephemeral_message_id is present in the message."
+
+        return await self._client.edit_ephemeral_message_text(
+            chat_id=self.chat.id,
+            receiver_user_id=self.receiver_user.id,
+            ephemeral_message_id=self.ephemeral_message_id,
+            text=text,
+            rich_message=rich_message,
+            parse_mode=parse_mode,
+            entities=entities,
+            link_preview_options=link_preview_options,
+            reply_markup=reply_markup,
+        )
+
+    async def edit_ephemeral_caption(
+        self,
+        caption: Optional[str] = None,
+        parse_mode: Optional["enums.ParseMode"] = None,
+        caption_entities: Optional[List["types.MessageEntity"]] = None,
+        show_caption_above_media: Optional[bool] = None,
+        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+    ) -> bool:
+        """Bound method *edit_ephemeral_caption* of :obj:`~pyrogram.types.Message`.
+
+        Shortcut for :meth:`~pyrogram.Client.edit_ephemeral_message_caption`.
+        """
+        assert self.receiver_user is not None, "This method can be used only if receiver_user is present in the message."
+        assert self.ephemeral_message_id is not None, "This method can be used only if ephemeral_message_id is present in the message."
+
+        return await self._client.edit_ephemeral_message_caption(
+            chat_id=self.chat.id,
+            receiver_user_id=self.receiver_user.id,
+            ephemeral_message_id=self.ephemeral_message_id,
+            caption=caption,
+            parse_mode=parse_mode,
+            caption_entities=caption_entities,
+            show_caption_above_media=show_caption_above_media,
+            reply_markup=reply_markup,
+        )
+
+    async def edit_ephemeral_media(
+        self,
+        media: "types.InputMedia",
+        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+    ) -> bool:
+        """Bound method *edit_ephemeral_media* of :obj:`~pyrogram.types.Message`.
+
+        Shortcut for :meth:`~pyrogram.Client.edit_ephemeral_message_media`.
+        """
+        assert self.receiver_user is not None, "This method can be used only if receiver_user is present in the message."
+        assert self.ephemeral_message_id is not None, "This method can be used only if ephemeral_message_id is present in the message."
+
+        return await self._client.edit_ephemeral_message_media(
+            chat_id=self.chat.id,
+            receiver_user_id=self.receiver_user.id,
+            ephemeral_message_id=self.ephemeral_message_id,
+            media=media,
+            reply_markup=reply_markup,
+        )
+
+    async def edit_ephemeral_reply_markup(
+        self,
+        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+    ) -> bool:
+        """Bound method *edit_ephemeral_reply_markup* of :obj:`~pyrogram.types.Message`.
+
+        Shortcut for :meth:`~pyrogram.Client.edit_ephemeral_message_reply_markup`.
+        """
+        assert self.receiver_user is not None, "This method can be used only if receiver_user is present in the message."
+        assert self.ephemeral_message_id is not None, "This method can be used only if ephemeral_message_id is present in the message."
+
+        return await self._client.edit_ephemeral_message_reply_markup(
+            chat_id=self.chat.id,
+            receiver_user_id=self.receiver_user.id,
+            ephemeral_message_id=self.ephemeral_message_id,
+            reply_markup=reply_markup,
+        )
+
+    async def delete_ephemeral(self) -> bool:
+        """Bound method *delete_ephemeral* of :obj:`~pyrogram.types.Message`.
+
+        Shortcut for :meth:`~pyrogram.Client.delete_ephemeral_message`.
+        """
+        assert self.receiver_user is not None, "This method can be used only if receiver_user is present in the message."
+        assert self.ephemeral_message_id is not None, "This method can be used only if ephemeral_message_id is present in the message."
+
+        return await self._client.delete_ephemeral_message(
+            chat_id=self.chat.id,
+            receiver_user_id=self.receiver_user.id,
+            ephemeral_message_id=self.ephemeral_message_id,
+        )
+
+    async def reply_rich(
+        self,
+        rich_message: Union["types.InputRichMessage", str, "raw.base.InputRichMessage"],
+        business_connection_id: Optional[str] = None,
+        disable_notification: Optional[bool] = None,
+        protect_content: Optional[bool] = None,
+        allow_paid_broadcast: Optional[bool] = None,
+        message_effect_id: Optional[int] = None,
+        suggested_post_parameters: Optional["types.SuggestedPostParameters"] = None,
+        reply_markup: Optional[Union[
+            "types.InlineKeyboardMarkup",
+            "types.ReplyKeyboardMarkup",
+            "types.ReplyKeyboardRemove",
+            "types.ForceReply"
+        ]] = None,
+        quote: Optional[bool] = None,
+        ephemeral_message_parameters: Optional["types.EphemeralMessageParameters"] = None,
+    ) -> "types.Message":
+        """Bound method *reply_rich* of :obj:`~pyrogram.types.Message`.
+
+        Shortcut for :meth:`~pyrogram.Client.send_rich_message`.
+        """
+        reply_parameters = types.ReplyParameters(
+            message_id=self.id,
+            quote=self.text if quote else None,
+        )
+        receiver_user_id = self.from_user.id if self.ephemeral_message_id and self.from_user else None
+
+        return await self._client.send_rich_message(
+            chat_id=self.chat.id,
+            rich_message=rich_message,
+            business_connection_id=business_connection_id,
+            message_thread_id=self.message_thread_id,
+            direct_messages_topic_id=self.direct_messages_topic_id,
+            disable_notification=disable_notification,
+            protect_content=protect_content,
+            allow_paid_broadcast=allow_paid_broadcast,
+            message_effect_id=message_effect_id,
+            suggested_post_parameters=suggested_post_parameters,
+            reply_parameters=reply_parameters,
+            reply_markup=reply_markup,
+            ephemeral_message_parameters=ephemeral_message_parameters,
+            receiver_user_id=receiver_user_id,
+        )
 
     async def click(
         self,

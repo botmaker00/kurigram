@@ -58,6 +58,9 @@ from .suggested_post_state import SuggestedPostState
 from .top_chat_category import TopChatCategory
 from .upgraded_gift_origin import UpgradedGiftOrigin
 from .user_status import UserStatus
+from .rich_block_type import RichBlockType
+from .input_rich_block_type import InputRichBlockType
+from .rich_text_type import RichTextType
 
 __all__ = [
     'BlockList',
@@ -101,5 +104,8 @@ __all__ = [
     'SuggestedPostState',
     'TopChatCategory',
     'UpgradedGiftOrigin',
-    'UserStatus'
+    'UserStatus',
+    'RichBlockType',
+    'InputRichBlockType',
+    'RichTextType',
 ]

@@ -21,25 +21,46 @@ import logging
 log = logging.getLogger(__name__)
 
 try:
-    import tgcrypto
+    import hypercrypto
 
-    log.info("Using TgCrypto")
+    log.info("Using HyperCrypto")
 
 
     def ige256_encrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
-        return tgcrypto.ige256_encrypt(data, key, iv)
+        return hypercrypto.ige256_encrypt(data, key, iv)
 
 
     def ige256_decrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
-        return tgcrypto.ige256_decrypt(data, key, iv)
+        return hypercrypto.ige256_decrypt(data, key, iv)
 
 
     def ctr256_encrypt(data: bytes, key: bytes, iv: bytearray, state: bytearray = None) -> bytes:
-        return tgcrypto.ctr256_encrypt(data, key, iv, state or bytearray(1))
+        state = state if state is not None else bytearray(1)
+        out = bytearray(data)
+        dlen = len(data)
+        if dlen == 0:
+            return bytes(out)
+        offset = 0
+        while offset < dlen:
+            chunk = hypercrypto.ctr256_encrypt(b"\x00" * 16, key, bytes(iv))
+            avail = 16 - state[0]
+            take = min(dlen - offset, avail)
+            for i in range(take):
+                out[offset + i] ^= chunk[state[0] + i]
+            state[0] = (state[0] + take) % 16
+            offset += take
+            if state[0] == 0:
+                for k in range(15, -1, -1):
+                    try:
+                        iv[k] += 1
+                        break
+                    except ValueError:
+                        iv[k] = 0
+        return bytes(out)
 
 
     def ctr256_decrypt(data: bytes, key: bytes, iv: bytearray, state: bytearray = None) -> bytes:
-        return tgcrypto.ctr256_decrypt(data, key, iv, state or bytearray(1))
+        return ctr256_encrypt(data, key, iv, state)
 
 
     def xor(a: bytes, b: bytes) -> bytes:
@@ -49,13 +70,42 @@ try:
             "big",
         )
 except ImportError:
-    import pyaes
+    try:
+        import tgcrypto
 
-    log.warning(
-        "TgCrypto is missing! "
-        "Pyrogram will work the same, but at a much slower speed. "
-        "More info: https://docs.pyrogram.org/topics/speedups"
-    )
+        log.info("Using TgCrypto")
+
+
+        def ige256_encrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
+            return tgcrypto.ige256_encrypt(data, key, iv)
+
+
+        def ige256_decrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
+            return tgcrypto.ige256_decrypt(data, key, iv)
+
+
+        def ctr256_encrypt(data: bytes, key: bytes, iv: bytearray, state: bytearray = None) -> bytes:
+            return tgcrypto.ctr256_encrypt(data, key, iv, state or bytearray(1))
+
+
+        def ctr256_decrypt(data: bytes, key: bytes, iv: bytearray, state: bytearray = None) -> bytes:
+            return tgcrypto.ctr256_decrypt(data, key, iv, state or bytearray(1))
+
+
+        def xor(a: bytes, b: bytes) -> bytes:
+            return int.to_bytes(
+                int.from_bytes(a, "big") ^ int.from_bytes(b, "big"),
+                len(a),
+                "big",
+            )
+    except ImportError:
+        import pyaes
+
+        log.warning(
+            "HyperCrypto is missing! "
+            "Kurigram will work the same, but at a much slower speed. "
+            "More info: https://docs.kurigram.icu"
+        )
 
 
     def ige256_encrypt(data: bytes, key: bytes, iv: bytes) -> bytes:

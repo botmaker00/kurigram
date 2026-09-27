@@ -18,6 +18,7 @@
 
 from .accepted_gift_types import AcceptedGiftTypes
 from .birthday import Birthday
+from .bot_subscription_updated import BotSubscriptionUpdated
 from .bot_verification import BotVerification
 from .business_bot_rights import BusinessBotRights
 from .business_connection import BusinessConnection
@@ -42,6 +43,10 @@ from .chat_photo import ChatPhoto
 from .chat_administrator_rights import ChatAdministratorRights, ChatPrivileges
 from .chat_reactions import ChatReactions
 from .chat_settings import ChatSettings
+from .community import Community
+from .community_chat_added import CommunityChatAdded
+from .community_chat_joined import CommunityChatJoined
+from .community_chat_removed import CommunityChatRemoved
 from .dialog import Dialog
 from .emoji_status import EmojiStatus
 from .failed_to_add_member import FailedToAddMember
@@ -114,5 +119,10 @@ __all__ = [
     "GroupCallMember",
     "HistoryCleared",
     "ChatReactions",
-    "ChatSettings"
+    "ChatSettings",
+    "Community",
+    "CommunityChatAdded",
+    "CommunityChatJoined",
+    "CommunityChatRemoved",
+    "BotSubscriptionUpdated"
 ]

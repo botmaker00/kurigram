@@ -43,6 +43,7 @@ from .dice import Dice
 from .direct_message_price_changed import DirectMessagePriceChanged
 from .direct_messages_topic import DirectMessagesTopic
 from .document import Document
+from .ephemeral_message_parameters import EphemeralMessageParameters
 from .external_reply_info import ExternalReplyInfo
 from .fact_check import FactCheck
 from .formatted_text import FormattedText
@@ -76,6 +77,7 @@ from .managed_bot_created import ManagedBotCreated
 from .mask_position import MaskPosition
 from .media_area import MediaArea
 from .message_content import MessageContent
+from .message_generation_stopped import MessageGenerationStopped
 from .message import Message
 from .message_entity import MessageEntity
 from .message_origin import MessageOrigin
@@ -104,7 +106,9 @@ from .reaction import Reaction
 from .refunded_payment import RefundedPayment
 from .reply_parameters import ReplyParameters
 from .restriction_reason import RestrictionReason
-from .rich_message import RichMessage
+from .rich_message import RichMessage, RichMessageButton, InputRichMessage, InputRichMessageMedia
+from .rich_block import *
+from .rich_text import *
 from .saved_credentials import SavedCredentials
 from .screenshot_taken import ScreenshotTaken
 from .star_amount import StarAmount
@@ -138,6 +142,7 @@ from .upgraded_gift_attribute_rarity import UpgradedGiftAttributeRarity, Upgrade
 from .upgraded_gift_original_details import UpgradedGiftOriginalDetails
 from .upgraded_gift_purchase_offer import UpgradedGiftPurchaseOffer, UpgradedGiftPurchaseOfferRejected
 from .upgraded_gift_value_info import UpgradedGiftValueInfo
+from .unique_gift_info import UniqueGiftInfo
 from .venue import Venue
 from .video import Video
 from .video_note import VideoNote
@@ -290,4 +295,92 @@ __all__ = [
     "WebAppData",
     "WebPage",
     "WriteAccessAllowed",
+    "EphemeralMessageParameters",
+    "MessageGenerationStopped",
+    "UniqueGiftInfo",
+    "RichMessage",
+    "RichMessageButton",
+    "InputRichMessage",
+    "InputRichMessageMedia",
+    "RichText",
+    "RichTextAnchor",
+    "RichTextAnchorLink",
+    "RichTextBankCardNumber",
+    "RichTextBold",
+    "RichTextBotCommand",
+    "RichTextButton",
+    "RichTextCashtag",
+    "RichTextCode",
+    "RichTextCustomEmoji",
+    "RichTextDateTime",
+    "RichTextEmailAddress",
+    "RichTextHashtag",
+    "RichTextItalic",
+    "RichTextMarked",
+    "RichTextMathematicalExpression",
+    "RichTextMention",
+    "RichTextPhoneNumber",
+    "RichTextReference",
+    "RichTextReferenceLink",
+    "RichTextSpoiler",
+    "RichTextStrikethrough",
+    "RichTextSubscript",
+    "RichTextSuperscript",
+    "RichTextTextMention",
+    "RichTextUnderline",
+    "RichTextUrl",
+    "RichBlockCaption",
+    "RichBlockTableCell",
+    "RichBlockListItem",
+    "InputRichBlockListItem",
+    "RichBlock",
+    "RichBlockAnchor",
+    "RichBlockAnimation",
+    "RichBlockAudio",
+    "RichBlockBlockQuotation",
+    "RichBlockButtons",
+    "RichBlockCollage",
+    "RichBlockDetails",
+    "RichBlockDivider",
+    "RichBlockDocument",
+    "RichBlockExpandableBlockQuotation",
+    "RichBlockFooter",
+    "RichBlockList",
+    "RichBlockMap",
+    "RichBlockMathematicalExpression",
+    "RichBlockParagraph",
+    "RichBlockPhoto",
+    "RichBlockPreformatted",
+    "RichBlockPullQuotation",
+    "RichBlockSectionHeading",
+    "RichBlockSlideshow",
+    "RichBlockTable",
+    "RichBlockThinking",
+    "RichBlockVideo",
+    "RichBlockVoiceNote",
+    "InputRichBlock",
+    "InputRichBlockAnchor",
+    "InputRichBlockAnimation",
+    "InputRichBlockAudio",
+    "InputRichBlockBlockQuotation",
+    "InputRichBlockButtons",
+    "InputRichBlockCollage",
+    "InputRichBlockDetails",
+    "InputRichBlockDivider",
+    "InputRichBlockDocument",
+    "InputRichBlockExpandableBlockQuotation",
+    "InputRichBlockFooter",
+    "InputRichBlockList",
+    "InputRichBlockMap",
+    "InputRichBlockMathematicalExpression",
+    "InputRichBlockParagraph",
+    "InputRichBlockPhoto",
+    "InputRichBlockPreformatted",
+    "InputRichBlockPullQuotation",
+    "InputRichBlockSectionHeading",
+    "InputRichBlockSlideshow",
+    "InputRichBlockTable",
+    "InputRichBlockThinking",
+    "InputRichBlockVideo",
+    "InputRichBlockVoiceNote",
 ]

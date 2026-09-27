@@ -31,13 +31,18 @@ class BotCommand(Object):
 
         description (``str``):
             Description of the command; 1-256 characters.
+
+        is_ephemeral (``bool``, *optional*):
+            Pass True, if the command must not be saved in the client's message history and will be cleared
+            after the bot sends any reply to the message.
     """
 
-    def __init__(self, command: str, description: str):
+    def __init__(self, command: str, description: str, is_ephemeral: bool = None):
         super().__init__()
 
         self.command = command
         self.description = description
+        self.is_ephemeral = is_ephemeral
 
     def write(self) -> "raw.types.BotCommand":
         return raw.types.BotCommand(

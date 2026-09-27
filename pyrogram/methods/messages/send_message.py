@@ -64,6 +64,9 @@ class SendMessage:
         quote_entities: Optional[List["types.MessageEntity"]] = None,
         quote_offset: Optional[int] = None,
         disable_web_page_preview: Optional[bool] = None, # TODO: Remove later
+        receiver_user_id: Optional[int] = None,
+        callback_query_id: Optional[str] = None,
+        ephemeral_message_parameters: Optional["types.EphemeralMessageParameters"] = None,
     ) -> "types.Message":
         """Send text messages.
 

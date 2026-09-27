@@ -34,6 +34,8 @@ class SendMessageDraft:
         rich_message: Optional[Union[str, "raw.base.InputRichMessage"]] = None,
         is_rtl: Optional[bool] = None,
         skip_entity_detection: Optional[bool] = None,
+        can_stop: Optional[bool] = None,
+        keep_on_stop: Optional[bool] = None,
     ) -> bool:
         """Use this method to stream a partial message to a user while the message is being generated.
 

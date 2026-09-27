@@ -54,6 +54,9 @@ class ReplyKeyboardMarkup(Object):
 
         placeholder (``str``, *optional*):
             The placeholder to be shown in the input field when the keyboard is active; 1-64 characters.
+
+        force_reply (:obj:`~pyrogram.types.ForceReply`, *optional*):
+            Instructions to force a reply from the user.
     """
 
     def __init__(
@@ -63,7 +66,8 @@ class ReplyKeyboardMarkup(Object):
         resize_keyboard: bool = None,
         one_time_keyboard: bool = None,
         selective: bool = None,
-        placeholder: str = None
+        placeholder: str = None,
+        force_reply: "types.ForceReply" = None
     ):
         super().__init__()
 
@@ -73,6 +77,7 @@ class ReplyKeyboardMarkup(Object):
         self.one_time_keyboard = one_time_keyboard
         self.selective = selective
         self.placeholder = placeholder
+        self.force_reply = force_reply
 
     @staticmethod
     def read(kb: "raw.base.ReplyMarkup"):

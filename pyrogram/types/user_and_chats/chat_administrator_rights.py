@@ -89,6 +89,10 @@ class ChatAdministratorRights(Object):
             For groups and supergroups only.
             True, if the administrator can edit the tags of regular members
             If omitted defaults to the value of ``can_pin_messages``.
+
+        can_send_welcome_messages (``bool``, *optional*):
+            Groups and supergroups only.
+            True, if the administrator can send welcome messages to new members.
     """
 
     def __init__(
@@ -111,6 +115,7 @@ class ChatAdministratorRights(Object):
         can_manage_topics: bool = False, # Supergroups only
         can_manage_direct_messages: bool = False,  # Channels only
         can_manage_tags: bool = False, # Groups and supergroups only
+        can_send_welcome_messages: bool = False, # Groups and supergroups only
     ):
         super().__init__(None)
 
@@ -131,6 +136,7 @@ class ChatAdministratorRights(Object):
         self.can_manage_topics: bool = can_manage_topics
         self.can_manage_direct_messages: bool = can_manage_direct_messages
         self.can_manage_tags: bool = can_manage_tags
+        self.can_send_welcome_messages: bool = can_send_welcome_messages
 
     @staticmethod
     def _parse(admin_rights: "raw.base.ChatAdminRights") -> "ChatAdministratorRights":

@@ -26,9 +26,14 @@ from .copy_message import CopyMessage
 from .decline_suggested_post import DeclineSuggestedPost
 from .delete_chat_history import DeleteChatHistory
 from .delete_direct_messages_chat_topic_history import DeleteDirectMessagesChatTopicHistory
+from .delete_ephemeral_message import DeleteEphemeralMessage
 from .delete_messages import DeleteMessages
 from .delete_poll_option import DeletePollOption
 from .download_media import DownloadMedia
+from .edit_ephemeral_message_caption import EditEphemeralMessageCaption
+from .edit_ephemeral_message_media import EditEphemeralMessageMedia
+from .edit_ephemeral_message_reply_markup import EditEphemeralMessageReplyMarkup
+from .edit_ephemeral_message_text import EditEphemeralMessageText
 from .edit_inline_caption import EditInlineCaption
 from .edit_inline_media import EditInlineMedia
 from .edit_inline_reply_markup import EditInlineReplyMarkup
@@ -86,6 +91,8 @@ from .send_paid_reaction import SendPaidReaction
 from .send_photo import SendPhoto
 from .send_poll import SendPoll
 from .send_reaction import SendReaction
+from .send_rich_message import SendRichMessage
+from .send_rich_message_draft import SendRichMessageDraft
 from .send_screenshot_notification import SendScreenshotNotification
 from .send_sticker import SendSticker
 from .send_venue import SendVenue
@@ -111,8 +118,13 @@ class Messages(
     ApproveSuggestedPost,
     ComposeTextWithAI,
     DeclineSuggestedPost,
+    DeleteEphemeralMessage,
     DeleteMessages,
     DeletePollOption,
+    EditEphemeralMessageCaption,
+    EditEphemeralMessageMedia,
+    EditEphemeralMessageReplyMarkup,
+    EditEphemeralMessageText,
     EditMessageCaption,
     EditMessageChecklist,
     EditMessageReplyMarkup,
@@ -140,6 +152,8 @@ class Messages(
     SendLocation,
     SendMediaGroup,
     SendMessageDraft,
+    SendRichMessage,
+    SendRichMessageDraft,
     SendMessage,
     SendPaidMedia,
     SendPaidReaction,

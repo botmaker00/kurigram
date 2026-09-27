@@ -523,6 +523,9 @@ class Chat(Object):
             Note added to the user's contact.
             Returned only in :meth:`~pyrogram.Client.get_chat`.
 
+        community (:obj:`~pyrogram.types.Community`, *optional*):
+            The community to which the chat belongs.
+
         raw (:obj:`~pyrogram.raw.types.UserFull` | :obj:`~pyrogram.raw.types.ChatFull` | :obj:`~pyrogram.raw.types.ChannelFull`, *optional*):
             The raw chat or user object, as received from the Telegram API.
 
@@ -671,6 +674,7 @@ class Chat(Object):
         note: Optional["types.FormattedText"] = None,
         guard_bot: Optional["types.User"] = None,
         guard_bot_id: Optional[int] = None,
+        community: Optional["types.Community"] = None,
         raw: Optional[Union["raw.types.UserFull", "raw.types.ChatFull", "raw.types.ChannelFull"]] = None
     ):
         super().__init__(client)
@@ -813,6 +817,7 @@ class Chat(Object):
         self.note = note
         self.guard_bot = guard_bot
         self.guard_bot_id = guard_bot_id
+        self.community = community
         self.raw = raw
 
     # region Deprecated

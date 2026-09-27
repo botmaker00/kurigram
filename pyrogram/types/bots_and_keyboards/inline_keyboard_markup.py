@@ -30,12 +30,20 @@ class InlineKeyboardMarkup(Object):
     Parameters:
         inline_keyboard (List of List of :obj:`~pyrogram.types.InlineKeyboardButton`):
             List of button rows, each represented by a List of InlineKeyboardButton objects.
+
+        force_reply (:obj:`~pyrogram.types.ForceReply`, *optional*):
+            Instructions to force a reply from the user.
     """
 
-    def __init__(self, inline_keyboard: List[List["types.InlineKeyboardButton"]]):
+    def __init__(
+        self,
+        inline_keyboard: List[List["types.InlineKeyboardButton"]],
+        force_reply: "types.ForceReply" = None
+    ):
         super().__init__()
 
         self.inline_keyboard = inline_keyboard
+        self.force_reply = force_reply
 
     @staticmethod
     def read(o):

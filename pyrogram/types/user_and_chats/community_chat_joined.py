@@ -16,25 +16,16 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from enum import auto
+import pyrogram
+from ..object import Object
 
-from .auto_name import AutoName
 
+class CommunityChatJoined(Object):
+    """Describes a service message about a user joining a chat that is part of a community. Currently holds no information."""
 
-class ButtonStyle(AutoName):
-    """Button style type enumeration used in :obj:`~pyrogram.types.KeyboardButton` and :obj:`~pyrogram.types.InlineKeyboardButton`."""
-
-    DEFAULT = auto()
-    "The button has default style"
-
-    PRIMARY = auto()
-    "The button has dark blue color"
-
-    DANGER = auto()
-    "The button has red color"
-
-    SUCCESS = auto()
-    "The button has green color"
-
-    LINK = auto()
-    "The button has link style"
+    def __init__(
+        self,
+        *,
+        client: "pyrogram.Client" = None,
+    ):
+        super().__init__(client)
