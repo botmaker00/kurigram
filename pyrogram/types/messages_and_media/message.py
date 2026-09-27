@@ -786,6 +786,8 @@ class Message(Object, Update):
         summary_language_code: Optional[str] = None,
         guest_bot_caller_user: Optional["types.User"] = None,
         guest_bot_caller_chat: Optional["types.Chat"] = None,
+        receiver_user: Optional["types.User"] = None,
+        ephemeral_message_id: Optional[str] = None,
         rich_message: Optional["types.RichMessage"] = None,
         raw: Optional["raw.types.Message"] = None
     ):
@@ -953,6 +955,8 @@ class Message(Object, Update):
         self.summary_language_code = summary_language_code
         self.guest_bot_caller_user = guest_bot_caller_user
         self.guest_bot_caller_chat = guest_bot_caller_chat
+        self.receiver_user = receiver_user
+        self.ephemeral_message_id = ephemeral_message_id
         self.rich_message = rich_message
         self.raw = raw
 

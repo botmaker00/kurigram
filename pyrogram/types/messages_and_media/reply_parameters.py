@@ -74,10 +74,12 @@ class ReplyParameters(Object):
         quote_position: Optional[int] = None,
         checklist_task_id: Optional[int] = None,
         poll_option_id: Optional[str] = None,
+        ephemeral_message_id: Optional[str] = None,
     ):
         super().__init__()
 
         self.message_id = message_id
+        self.ephemeral_message_id = ephemeral_message_id
         self.story_id = story_id
         self.chat_id = chat_id
         self.quote = quote

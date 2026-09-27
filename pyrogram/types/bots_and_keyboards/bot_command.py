@@ -33,11 +33,12 @@ class BotCommand(Object):
             Description of the command; 1-256 characters.
     """
 
-    def __init__(self, command: str, description: str):
+    def __init__(self, command: str, description: str, is_ephemeral: bool = False):
         super().__init__()
 
         self.command = command
         self.description = description
+        self.is_ephemeral = is_ephemeral
 
     def write(self) -> "raw.types.BotCommand":
         return raw.types.BotCommand(
