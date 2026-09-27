@@ -1,6 +1,9 @@
+import asyncio
+import hashlib
 import os
 import random
 from io import BytesIO
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 import tgcrypto
 import hypercrypto
@@ -8,6 +11,7 @@ import hypercrypto
 from pyrogram.crypto import aes, mtproto
 from pyrogram import raw
 from pyrogram.raw.core import Message, Long
+from pyrogram.methods.advanced.save_file import SaveFile
 
 
 def test_crypto_backend_selection():
@@ -96,3 +100,86 @@ def test_mtproto_roundtrip():
     assert unpacked.msg_id == msg_id
     assert unpacked.seq_no == seq_no
     assert unpacked.body.ping_id == 12345
+
+
+class MockStorage:
+    async def dc_id(self):
+        return 2
+
+
+class MockClient(SaveFile):
+    def __init__(self):
+        self.save_file_semaphore = asyncio.Semaphore(1)
+        self.loop = asyncio.get_event_loop()
+        self.executor = None
+        self.me = MagicMock()
+        self.me.is_premium = False
+        self.storage = MockStorage()
+        self.session_mock = AsyncMock()
+        self.session_mock.invoke = AsyncMock()
+
+    def rnd_id(self):
+        return 99999
+
+    async def get_session(self, dc_id, is_media=True):
+        return self.session_mock
+
+
+@pytest.mark.asyncio
+async def test_save_file_missing_part_retry():
+    client = MockClient()
+    file_bytes = b"Hello World Missing Part Test Data"
+    f = BytesIO(file_bytes)
+    f.name = "small.dat"
+
+    res = await client.save_file(f, file_id=12345, file_part=0)
+    assert isinstance(res, raw.types.InputFile)
+    assert res.id == 12345
+    assert res.md5_checksum == ""
+
+
+@pytest.mark.asyncio
+async def test_save_file_fresh_upload_md5():
+    client = MockClient()
+    file_bytes = b"Hello World Fresh Upload MD5 Test Data"
+    expected_md5 = hashlib.md5(file_bytes).hexdigest()
+    f = BytesIO(file_bytes)
+    f.name = "small.dat"
+
+    res = await client.save_file(f)
+    assert isinstance(res, raw.types.InputFile)
+    assert res.id == 99999
+    assert res.md5_checksum == expected_md5
+
+
+def test_mtproto_backend_tied_to_aes_backend(monkeypatch):
+    assert aes.BACKEND == "HyperCrypto"
+    auth_key = os.urandom(256)
+    msg_key = os.urandom(16)
+
+    # When aes.BACKEND is "HyperCrypto"
+    res_kdf = mtproto.kdf(auth_key, msg_key, True)
+    expected_hc = hypercrypto.kdf(auth_key, msg_key, True)
+    assert res_kdf == expected_hc
+
+    # When monkeypatched to "TgCrypto"
+    monkeypatch.setattr(aes, "BACKEND", "TgCrypto")
+    import importlib
+    import pyrogram.crypto.mtproto as mtproto_mod
+    importlib.reload(mtproto_mod)
+
+    hc_called = False
+    def mock_hc_kdf(*args, **kwargs):
+        nonlocal hc_called
+        hc_called = True
+        return hypercrypto.kdf(*args, **kwargs)
+
+    monkeypatch.setattr(hypercrypto, "kdf", mock_hc_kdf)
+
+    res_kdf_fallback = mtproto_mod.kdf(auth_key, msg_key, True)
+    assert not hc_called, "hypercrypto.kdf should NOT be called when aes.BACKEND != 'HyperCrypto'"
+    assert res_kdf_fallback == expected_hc
+
+    # Restore mtproto module
+    monkeypatch.undo()
+    importlib.reload(mtproto_mod)

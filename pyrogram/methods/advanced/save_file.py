@@ -30,6 +30,7 @@ from typing import Union, BinaryIO, Callable
 import pyrogram
 from pyrogram import StopTransmission
 from pyrogram import raw
+from pyrogram.session import Session
 
 log = logging.getLogger(__name__)
 
@@ -97,6 +98,18 @@ class SaveFile:
             if path is None:
                 return None
 
+            async def worker(session):
+                while True:
+                    data = await queue.get()
+
+                    if data is None:
+                        return
+
+                    try:
+                        await session.invoke(data)
+                    except Exception as e:
+                        log.exception(e)
+
             part_size = 512 * 1024
 
             if isinstance(path, (str, PurePath, os.PathLike)):
@@ -108,168 +121,105 @@ class SaveFile:
             else:
                 raise ValueError("Invalid file. Expected a file path as string or a binary (not text) file pointer")
 
+            file_name = getattr(path, "filename", None) or getattr(fp, "name", "file.jpg")
+
+            fp.seek(0, os.SEEK_END)
+            file_size = fp.tell()
+            fp.seek(0)
+
+            if file_size == 0:
+                raise ValueError("File size equals to 0 B")
+
+            if self.me and self.me.is_premium:
+                file_size_limit_mib = 4000
+            else:
+                file_size_limit_mib = 2000
+
+            if file_size > file_size_limit_mib * 1024 * 1024:
+                raise ValueError(f"Can't upload files bigger than {file_size_limit_mib} MiB")
+
+            file_total_parts = int(math.ceil(file_size / part_size))
+            is_big = file_size > 10 * 1024 * 1024
+            workers_count = 4 if is_big else 1
+            is_missing_part = file_id is not None
+            file_id = file_id or self.rnd_id()
+            md5_sum = md5() if not is_big and not is_missing_part else None
+            dc_id = await self.storage.dc_id()
+
+            session = await self.get_session(dc_id, is_media=True)
+
+            workers = [self.loop.create_task(worker(session)) for _ in range(workers_count)]
+            queue = asyncio.Queue(1)
+
             try:
-                file_name = getattr(path, "filename", None) or getattr(fp, "name", "file.jpg")
+                fp.seek(part_size * file_part)
 
-                fp.seek(0, os.SEEK_END)
-                file_size = fp.tell()
-                fp.seek(0)
+                while True:
+                    chunk = fp.read(part_size)
 
-                if file_size == 0:
-                    raise ValueError("File size equals to 0 B")
+                    if not chunk:
+                        break
 
-                if self.me and self.me.is_premium:
-                    file_size_limit_mib = 4000
-                else:
-                    file_size_limit_mib = 2000
+                    if is_big:
+                        rpc = raw.functions.upload.SaveBigFilePart(
+                            file_id=file_id,
+                            file_part=file_part,
+                            file_total_parts=file_total_parts,
+                            bytes=chunk
+                        )
+                    else:
+                        rpc = raw.functions.upload.SaveFilePart(
+                            file_id=file_id,
+                            file_part=file_part,
+                            bytes=chunk
+                        )
 
-                if file_size > file_size_limit_mib * 1024 * 1024:
-                    raise ValueError(f"Can't upload files bigger than {file_size_limit_mib} MiB")
+                    await queue.put(rpc)
 
-                file_total_parts = int(math.ceil(file_size / part_size))
-                is_big = file_size > 10 * 1024 * 1024
-                workers_count = 4 if is_big else 1
-                is_missing_part = file_id is not None
-                file_id = file_id or self.rnd_id()
-                md5_sum = md5() if not is_big and not is_missing_part else None
-                dc_id = await self.storage.dc_id()
+                    if is_missing_part:
+                        break
 
-                session = await self.get_session(dc_id, is_media=True)
+                    if not is_big and not is_missing_part:
+                        md5_sum.update(chunk)
 
-                completed_bytes = 0
-                worker_exception = None
-                cancel_event = asyncio.Event()
-                progress_lock = asyncio.Lock()
+                    file_part += 1
 
-                queue = asyncio.Queue(maxsize=workers_count * 2)
+                    if progress:
+                        func = functools.partial(
+                            progress,
+                            min(file_part * part_size, file_size),
+                            file_size,
+                            *progress_args
+                        )
 
-                async def worker():
-                    nonlocal completed_bytes, worker_exception
-                    while not cancel_event.is_set():
-                        try:
-                            item = await asyncio.wait_for(queue.get(), timeout=0.1)
-                        except asyncio.TimeoutError:
-                            continue
-                        except asyncio.CancelledError:
-                            break
-
-                        if item is None:
-                            queue.task_done()
-                            break
-
-                        file_part_idx, rpc, chunk_len = item
-
-                        try:
-                            await session.invoke(rpc)
-                        except StopTransmission:
-                            worker_exception = StopTransmission()
-                            cancel_event.set()
-                            queue.task_done()
-                            break
-                        except Exception as e:
-                            if worker_exception is None:
-                                worker_exception = e
-                            cancel_event.set()
-                            queue.task_done()
-                            break
+                        if inspect.iscoroutinefunction(progress):
+                            await func()
                         else:
-                            queue.task_done()
-                            async with progress_lock:
-                                completed_bytes += chunk_len
-                                cur = min(completed_bytes, file_size)
-
-                            if progress:
-                                func = functools.partial(progress, cur, file_size, *progress_args)
-                                try:
-                                    if inspect.iscoroutinefunction(progress):
-                                        await func()
-                                    else:
-                                        await self.loop.run_in_executor(self.executor, func)
-                                except StopTransmission:
-                                    worker_exception = StopTransmission()
-                                    cancel_event.set()
-                                    break
-                                except Exception as pe:
-                                    log.exception("Error in progress callback: %s", pe)
-
-                workers = [self.loop.create_task(worker()) for _ in range(workers_count)]
-
-                try:
-                    fp.seek(part_size * file_part)
-
-                    while not cancel_event.is_set():
-                        chunk = fp.read(part_size)
-
-                        if not chunk:
-                            if not is_big and not is_missing_part and md5_sum is not None:
-                                md5_sum_str = md5_sum.hexdigest()
-                            else:
-                                md5_sum_str = ""
-                            break
-
-                        if is_big:
-                            rpc = raw.functions.upload.SaveBigFilePart(
-                                file_id=file_id,
-                                file_part=file_part,
-                                file_total_parts=file_total_parts,
-                                bytes=chunk
-                            )
-                        else:
-                            rpc = raw.functions.upload.SaveFilePart(
-                                file_id=file_id,
-                                file_part=file_part,
-                                bytes=chunk
-                            )
-
-                        if not is_big and not is_missing_part and md5_sum is not None:
-                            md5_sum.update(chunk)
-
-                        while not cancel_event.is_set():
-                            try:
-                                queue.put_nowait((file_part, rpc, len(chunk)))
-                                break
-                            except asyncio.QueueFull:
-                                await asyncio.sleep(0.01)
-
-                        if is_missing_part:
-                            break
-
-                        file_part += 1
-
-                    if worker_exception is None and not cancel_event.is_set():
-                        for _ in range(workers_count):
-                            while not cancel_event.is_set():
-                                try:
-                                    queue.put_nowait(None)
-                                    break
-                                except asyncio.QueueFull:
-                                    await asyncio.sleep(0.01)
-
-                        await asyncio.gather(*workers, return_exceptions=True)
-
-                finally:
-                    cancel_event.set()
-                    for w in workers:
-                        if not w.done():
-                            w.cancel()
-                    await asyncio.gather(*workers, return_exceptions=True)
-
-                if worker_exception is not None:
-                    raise worker_exception
-
+                            await self.loop.run_in_executor(self.executor, func)
+            except StopTransmission:
+                raise
+            except Exception as e:
+                log.exception(e)
+            else:
                 if is_big:
                     return raw.types.InputFileBig(
                         id=file_id,
                         parts=file_total_parts,
                         name=file_name,
+
                     )
                 else:
                     return raw.types.InputFile(
                         id=file_id,
                         parts=file_total_parts,
                         name=file_name,
-                        md5_checksum=md5_sum_str
+                        md5_checksum=md5_sum.hexdigest() if md5_sum is not None else ""
                     )
             finally:
+                for _ in workers:
+                    await queue.put(None)
+
+                await asyncio.gather(*workers)
+
                 if isinstance(path, (str, PurePath, os.PathLike)):
                     fp.close()

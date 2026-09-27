@@ -24,7 +24,7 @@ from pyrogram.errors import SecurityCheckMismatch
 from pyrogram.raw.core import Message, Long
 from . import aes
 
-try:
+if aes.BACKEND == "HyperCrypto":
     import hypercrypto
 
     def _sha256(data: bytes) -> bytes:
@@ -32,8 +32,7 @@ try:
 
     def kdf(auth_key: bytes, msg_key: bytes, outgoing: bool) -> tuple:
         return hypercrypto.kdf(auth_key, msg_key, outgoing)
-
-except Exception:
+else:
     def _sha256(data: bytes) -> bytes:
         return py_sha256(data).digest()
 
