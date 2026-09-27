@@ -69,6 +69,7 @@ from .video_chat_ended import VideoChatEnded
 from .video_chat_members_invited import VideoChatMembersInvited
 from .video_chat_scheduled import VideoChatScheduled
 from .video_chat_started import VideoChatStarted
+from .user_profile_audios import UserProfileAudios
 
 __all__ = [
     "AcceptedGiftTypes",
@@ -124,5 +125,6 @@ __all__ = [
     "CommunityChatAdded",
     "CommunityChatJoined",
     "CommunityChatRemoved",
-    "BotSubscriptionUpdated"
+    "BotSubscriptionUpdated",
+    "UserProfileAudios",
 ]

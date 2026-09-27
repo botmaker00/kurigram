@@ -69,6 +69,32 @@ from .live_photo import LivePhoto
 from .giveaway import Giveaway
 from .input_checklist_task import InputChecklistTask
 from .input_file import InputFile, FSInputFile, BufferedInputFile, URLInputFile
+from .unique_gift import (
+    UniqueGiftBackdropColors,
+    UniqueGiftBackdrop,
+    UniqueGiftModel,
+    UniqueGiftSymbol,
+    UniqueGiftColors,
+    UniqueGift,
+    GiftInfo,
+    OwnedGift,
+    OwnedGiftRegular,
+    OwnedGiftUnique,
+    OwnedGifts,
+    Gifts
+)
+from .star_transaction import (
+    TransactionPartner,
+    TransactionPartnerUser,
+    TransactionPartnerChat,
+    TransactionPartnerAffiliateProgram,
+    TransactionPartnerFragment,
+    TransactionPartnerTelegramAds,
+    TransactionPartnerTelegramApi,
+    TransactionPartnerOther,
+    StarTransaction,
+    StarTransactions
+)
 from .giveaway_completed import GiveawayCompleted
 from .giveaway_created import GiveawayCreated
 from .giveaway_prize_stars import GiveawayPrizeStars
@@ -388,4 +414,26 @@ __all__ = [
     "FSInputFile",
     "BufferedInputFile",
     "URLInputFile",
+    "UniqueGiftBackdropColors",
+    "UniqueGiftBackdrop",
+    "UniqueGiftModel",
+    "UniqueGiftSymbol",
+    "UniqueGiftColors",
+    "UniqueGift",
+    "GiftInfo",
+    "OwnedGift",
+    "OwnedGiftRegular",
+    "OwnedGiftUnique",
+    "OwnedGifts",
+    "Gifts",
+    "TransactionPartner",
+    "TransactionPartnerUser",
+    "TransactionPartnerChat",
+    "TransactionPartnerAffiliateProgram",
+    "TransactionPartnerFragment",
+    "TransactionPartnerTelegramAds",
+    "TransactionPartnerTelegramApi",
+    "TransactionPartnerOther",
+    "StarTransaction",
+    "StarTransactions",
 ]

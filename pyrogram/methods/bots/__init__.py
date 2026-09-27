@@ -52,6 +52,10 @@ from .set_bot_name import SetBotName
 from .set_chat_menu_button import SetChatMenuButton
 from .set_game_score import SetGameScore
 from .set_managed_bot_access_settings import SetManagedBotAccessSettings
+from .save_prepared_inline_message import SavePreparedInlineMessage
+from .save_prepared_keyboard_button import SavePreparedKeyboardButton
+from .get_star_transactions import GetStarTransactions
+from .get_my_star_balance import GetMyStarBalance
 
 
 class Bots(
@@ -90,6 +94,10 @@ class Bots(
     AnswerWebAppQuery,
     CheckBotUsername,
     CreateBot,
-    SetManagedBotAccessSettings
+    SetManagedBotAccessSettings,
+    SavePreparedInlineMessage,
+    SavePreparedKeyboardButton,
+    GetStarTransactions,
+    GetMyStarBalance
 ):
     pass

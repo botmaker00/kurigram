@@ -35,6 +35,7 @@ from .unblock_user import UnblockUser
 from .update_birthday import UpdateBirthday
 from .update_profile import UpdateProfile
 from .update_status import UpdateStatus
+from .get_user_profile_audios import GetUserProfileAudios
 
 
 class Users(
@@ -56,6 +57,7 @@ class Users(
     UpdateProfile,
     UpdateStatus,
     GetDefaultEmojiStatuses,
-    SetEmojiStatus
+    SetEmojiStatus,
+    GetUserProfileAudios
 ):
     pass

@@ -9233,6 +9233,42 @@ class Message(Object, Update):
             receiver_user_id=receiver_user_id,
         )
 
+    def as_reply_parameters(
+        self,
+        *,
+        quote: Optional[str] = None,
+        quote_parse_mode: Optional["enums.ParseMode"] = None,
+        quote_entities: Optional[List["types.MessageEntity"]] = None,
+        quote_position: Optional[int] = None,
+        checklist_task_id: Optional[int] = None,
+        allow_sending_without_reply: Optional[bool] = None,
+    ) -> "types.ReplyParameters":
+        """Convert this message into a ReplyParameters object.
+
+        Targets an ephemeral message by its ephemeral_message_id if present,
+        otherwise by message_id and chat_id.
+        """
+        if self.ephemeral_message_id is not None:
+            return types.ReplyParameters(
+                ephemeral_message_id=self.ephemeral_message_id,
+                quote=quote,
+                quote_parse_mode=quote_parse_mode,
+                quote_entities=quote_entities,
+                quote_position=quote_position,
+                checklist_task_id=checklist_task_id,
+                allow_sending_without_reply=allow_sending_without_reply,
+            )
+        return types.ReplyParameters(
+            message_id=self.id,
+            chat_id=self.chat.id if self.chat else None,
+            quote=quote,
+            quote_parse_mode=quote_parse_mode,
+            quote_entities=quote_entities,
+            quote_position=quote_position,
+            checklist_task_id=checklist_task_id,
+            allow_sending_without_reply=allow_sending_without_reply,
+        )
+
     async def click(
         self,
         x: Union[int, str] = 0,

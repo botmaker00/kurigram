@@ -58,6 +58,9 @@ from .users_shared import UsersShared
 from .sent_web_app_message import SentWebAppMessage
 from .shipping_option import ShippingOption
 from .shipping_query import ShippingQuery
+from .disabled_button import DisabledButton
+from .copy_text_button import CopyTextButton
+from .prepared_keyboard_button import PreparedKeyboardButton
 from .shipping_address import ShippingAddress
 from .web_app_info import WebAppInfo
 
@@ -105,5 +108,8 @@ __all__ = [
     "SentWebAppMessage",
     "ShippingOption",
     "ShippingQuery",
-    "ShippingAddress"
+    "ShippingAddress",
+    "DisabledButton",
+    "CopyTextButton",
+    "PreparedKeyboardButton",
 ]

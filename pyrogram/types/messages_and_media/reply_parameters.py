@@ -78,6 +78,7 @@ class ReplyParameters(Object):
         checklist_task_id: Optional[int] = None,
         poll_option_id: Optional[str] = None,
         ephemeral_message_id: Optional[int] = None,
+        allow_sending_without_reply: Optional[bool] = None,
     ):
         super().__init__()
 
@@ -91,3 +92,4 @@ class ReplyParameters(Object):
         self.checklist_task_id = checklist_task_id
         self.poll_option_id = poll_option_id
         self.ephemeral_message_id = ephemeral_message_id
+        self.allow_sending_without_reply = allow_sending_without_reply

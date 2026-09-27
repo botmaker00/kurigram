@@ -248,3 +248,53 @@ def test_user_requested_types_exported():
     for name in required_names:
         assert hasattr(types, name), f"pyrogram.types missing {name}"
 
+
+def test_unique_gifts_and_prepared_types():
+    assert hasattr(types, "DisabledButton")
+    assert hasattr(types, "CopyTextButton")
+    assert hasattr(types, "PreparedKeyboardButton")
+    assert hasattr(types, "PreparedInlineMessage")
+    assert hasattr(types, "UniqueGift")
+    assert hasattr(types, "UniqueGiftModel")
+    assert hasattr(types, "UniqueGiftSymbol")
+    assert hasattr(types, "UniqueGiftBackdrop")
+    assert hasattr(types, "UniqueGiftColors")
+    assert hasattr(types, "GiftInfo")
+    assert hasattr(types, "OwnedGift")
+    assert hasattr(types, "OwnedGiftRegular")
+    assert hasattr(types, "OwnedGiftUnique")
+    assert hasattr(types, "OwnedGifts")
+    assert hasattr(types, "Gifts")
+    assert hasattr(types, "UserProfileAudios")
+    assert hasattr(types, "StarTransaction")
+    assert hasattr(types, "StarTransactions")
+
+    copy_btn = types.CopyTextButton(text="copy me")
+    btn = types.InlineKeyboardButton(text="Copy", copy_text=copy_btn)
+    assert btn.copy_text == "copy me"
+
+
+def test_message_as_reply_parameters():
+    msg = types.Message(id=42, ephemeral_message_id=999)
+    rp_eph = msg.as_reply_parameters()
+    assert rp_eph.ephemeral_message_id == 999
+    assert rp_eph.message_id is None
+
+    msg2 = types.Message(id=101)
+    rp_reg = msg2.as_reply_parameters()
+    assert rp_reg.message_id == 101
+    assert rp_reg.ephemeral_message_id is None
+
+
+def test_client_bot_api_10_methods():
+    app = Client("test_session")
+    for method in [
+        "save_prepared_inline_message",
+        "save_prepared_keyboard_button",
+        "get_star_transactions",
+        "get_my_star_balance",
+        "get_user_profile_audios",
+    ]:
+        assert hasattr(app, method), f"Client is missing: {method}"
+
+
