@@ -112,14 +112,16 @@ class SaveFile:
 
             part_size = 512 * 1024
 
-            if isinstance(path, (str, PurePath)):
-                fp = open(path, "rb")
+            if isinstance(path, (str, PurePath, os.PathLike)):
+                fp = open(os.fspath(path), "rb")
+            elif hasattr(path, "to_io") and callable(path.to_io):
+                fp = path.to_io()
             elif isinstance(path, io.IOBase):
                 fp = path
             else:
                 raise ValueError("Invalid file. Expected a file path as string or a binary (not text) file pointer")
 
-            file_name = getattr(fp, "name", "file.jpg")
+            file_name = getattr(path, "filename", None) or getattr(fp, "name", "file.jpg")
 
             fp.seek(0, os.SEEK_END)
             file_size = fp.tell()
@@ -221,5 +223,5 @@ class SaveFile:
 
                 await asyncio.gather(*workers)
 
-                if isinstance(path, (str, PurePath)):
+                if isinstance(path, (str, PurePath, os.PathLike)):
                     fp.close()

@@ -348,3 +348,71 @@ class CallbackQuery(Object, Update):
                 inline_message_id=self.inline_message_id,
                 reply_markup=reply_markup
             )
+
+    def as_ephemeral_message_parameters(
+        self,
+        *,
+        replace_callback_query_message: Optional[bool] = None,
+    ) -> "types.EphemeralMessageParameters":
+        """Convert this callback query into an EphemeralMessageParameters object.
+
+        Parameters:
+            replace_callback_query_message (``bool``, *optional*):
+                Pass True if the previous callback query message should be replaced.
+
+        Returns:
+            :obj:`~pyrogram.types.EphemeralMessageParameters`: The ephemeral message parameters.
+        """
+        from ..messages_and_media.ephemeral_message_parameters import EphemeralMessageParameters
+
+        return EphemeralMessageParameters(
+            receiver_user_id=self.from_user.id if self.from_user else None,
+            callback_query_id=self.id,
+            replace_callback_query_message=replace_callback_query_message,
+        )
+
+    async def reply_ephemeral(
+        self,
+        text: str,
+        replace_callback_query_message: Optional[bool] = None,
+        parse_mode: Optional["enums.ParseMode"] = None,
+        reply_markup: "types.InlineKeyboardMarkup" = None,
+        **kwargs
+    ) -> "types.Message":
+        """Send an ephemeral message in response to this callback query.
+
+        Bound method *reply_ephemeral* of :obj:`~pyrogram.types.CallbackQuery`.
+
+        Parameters:
+            text (``str``):
+                Text of the message to be sent.
+
+            replace_callback_query_message (``bool``, *optional*):
+                Pass True if the previous callback query message should be replaced.
+
+            parse_mode (:obj:`~pyrogram.enums.ParseMode`, *optional*):
+                By default, texts are parsed using both Markdown and HTML styles.
+
+            reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
+                An InlineKeyboardMarkup object.
+
+        Returns:
+            :obj:`~pyrogram.types.Message`: On success, the sent Message is returned.
+        """
+        params = self.as_ephemeral_message_parameters(
+            replace_callback_query_message=replace_callback_query_message
+        )
+        chat_id = (
+            self.message.chat.id
+            if (self.message and self.message.chat)
+            else (self.from_user.id if self.from_user else None)
+        )
+        return await self._client.send_message(
+            chat_id=chat_id,
+            text=text,
+            parse_mode=parse_mode,
+            reply_markup=reply_markup,
+            ephemeral_message_parameters=params,
+            **kwargs
+        )
+

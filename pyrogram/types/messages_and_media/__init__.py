@@ -68,6 +68,7 @@ from .link_preview_options import LinkPreviewOptions
 from .live_photo import LivePhoto
 from .giveaway import Giveaway
 from .input_checklist_task import InputChecklistTask
+from .input_file import InputFile, FSInputFile, BufferedInputFile, URLInputFile
 from .giveaway_completed import GiveawayCompleted
 from .giveaway_created import GiveawayCreated
 from .giveaway_prize_stars import GiveawayPrizeStars
@@ -383,4 +384,8 @@ __all__ = [
     "InputRichBlockThinking",
     "InputRichBlockVideo",
     "InputRichBlockVoiceNote",
+    "InputFile",
+    "FSInputFile",
+    "BufferedInputFile",
+    "URLInputFile",
 ]

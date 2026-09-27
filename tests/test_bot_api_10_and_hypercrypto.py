@@ -201,3 +201,50 @@ def test_client_methods_available():
         "send_chat_join_request_web_app",
     ]:
         assert hasattr(app, method), f"Client is missing method: {method}"
+
+
+def test_callback_query_ephemeral():
+    user = types.User(id=98765, first_name="Test")
+    cb = types.CallbackQuery(id="cb123", from_user=user, chat_instance="inst1")
+    params = cb.as_ephemeral_message_parameters(replace_callback_query_message=True)
+    assert isinstance(params, types.EphemeralMessageParameters)
+    assert params.receiver_user_id == 98765
+    assert params.callback_query_id == "cb123"
+    assert params.replace_callback_query_message is True
+    assert hasattr(cb, "reply_ephemeral")
+
+
+def test_fs_input_file_and_buffered_input_file(tmp_path):
+    fpath = tmp_path / "test.txt"
+    fpath.write_text("hello kurigram")
+    fs_file = types.FSInputFile(fpath)
+    assert fs_file.filename == "test.txt"
+    assert fs_file.path == str(fpath)
+    assert fs_file.read() == b"hello kurigram"
+    assert str(fs_file) == str(fpath)
+    assert os.fspath(fs_file) == str(fpath)
+
+    buf_file = types.BufferedInputFile(b"test data", filename="data.bin")
+    assert buf_file.filename == "data.bin"
+    bio = buf_file.to_io()
+    assert bio.read() == b"test data"
+    assert bio.name == "data.bin"
+
+
+def test_user_requested_types_exported():
+    required_names = [
+        "CallbackQuery",
+        "EphemeralMessageParameters",
+        "FSInputFile",
+        "InputRichBlockBlockQuotation",
+        "InputRichBlockButtons",
+        "InputRichBlockParagraph",
+        "InputRichBlockSectionHeading",
+        "InputRichMessage",
+        "Message",
+        "RichMessageButton",
+        "RichText",
+    ]
+    for name in required_names:
+        assert hasattr(types, name), f"pyrogram.types missing {name}"
+
