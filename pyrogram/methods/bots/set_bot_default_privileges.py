@@ -64,18 +64,34 @@ class SetBotDefaultPrivileges:
             else raw.functions.bots.SetBotGroupDefaultAdminRights
         )
 
-        admin_rights = raw.types.ChatAdminRights(
-            change_info=privileges.can_change_info,
-            post_messages=privileges.can_post_messages,
-            edit_messages=privileges.can_edit_messages,
-            delete_messages=privileges.can_delete_messages,
-            ban_users=privileges.can_restrict_members,
-            invite_users=privileges.can_invite_users,
-            pin_messages=privileges.can_pin_messages,
-            add_admins=privileges.can_promote_members,
-            anonymous=privileges.is_anonymous,
-            manage_call=privileges.can_manage_video_chats,
-            other=privileges.can_manage_chat
-        ) if privileges else raw.types.ChatAdminRights()
+        if privileges:
+            if hasattr(privileges, "write"):
+                admin_rights = privileges.write(self)
+                import inspect
+                if inspect.isawaitable(admin_rights):
+                    admin_rights = await admin_rights
+            else:
+                admin_rights = raw.types.ChatAdminRights(
+                    change_info=privileges.can_change_info,
+                    post_messages=privileges.can_post_messages,
+                    edit_messages=privileges.can_edit_messages,
+                    delete_messages=privileges.can_delete_messages,
+                    ban_users=privileges.can_restrict_members,
+                    invite_users=privileges.can_invite_users,
+                    pin_messages=privileges.can_pin_messages,
+                    add_admins=privileges.can_promote_members,
+                    anonymous=privileges.is_anonymous,
+                    manage_call=privileges.can_manage_video_chats,
+                    manage_topics=privileges.can_manage_topics,
+                    post_stories=privileges.can_post_stories,
+                    edit_stories=privileges.can_edit_stories,
+                    delete_stories=privileges.can_delete_stories,
+                    manage_direct_messages=privileges.can_manage_direct_messages,
+                    manage_ranks=privileges.can_manage_tags,
+                    send_welcome_messages=privileges.can_send_welcome_messages,
+                    other=privileges.can_manage_chat
+                )
+        else:
+            admin_rights = raw.types.ChatAdminRights()
 
         return await self.invoke(function(admin_rights=admin_rights))

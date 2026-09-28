@@ -16,7 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Kurigram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Optional
+from typing import Any, Optional
 from pyrogram import raw
 from .input_media import InputMedia
 
@@ -64,9 +64,30 @@ class InputMediaLink(InputMedia):
         )
 
     @staticmethod
-    def read(media: "raw.types.InputMediaWebPage") -> "InputMediaLink":
-        return InputMediaLink(
-            url=media.url,
-            prefer_large_media=media.force_large_media,
-            prefer_small_media=media.force_small_media,
-        )
+    def read(media: Any) -> Optional["InputMediaLink"]:
+        if not media:
+            return None
+        if isinstance(media, InputMediaLink):
+            return media
+        from pyrogram import raw
+        if isinstance(media, raw.types.InputMediaWebPage):
+            return InputMediaLink(
+                url=media.url,
+                prefer_large_media=media.force_large_media,
+                prefer_small_media=media.force_small_media,
+            )
+        if isinstance(media, raw.types.MessageMediaWebPage):
+            url = getattr(media.webpage, "url", "") if hasattr(media, "webpage") else ""
+            return InputMediaLink(
+                url=url,
+                prefer_large_media=getattr(media, "force_large_media", None),
+                prefer_small_media=getattr(media, "force_small_media", None),
+            )
+        if isinstance(media, dict):
+            return InputMediaLink(
+                url=media.get("url", ""),
+                prefer_large_media=media.get("prefer_large_media") or media.get("force_large_media"),
+                prefer_small_media=media.get("prefer_small_media") or media.get("force_small_media"),
+                show_above_text=media.get("show_above_text"),
+            )
+        return None

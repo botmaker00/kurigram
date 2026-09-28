@@ -234,39 +234,59 @@ class KeyboardButton(Object):
             user_privileges = self.request_chat.user_administrator_rights
             bot_privileges = self.request_chat.bot_administrator_rights
 
-            user_admin_rights = raw.types.ChatAdminRights(
-                change_info=user_privileges.can_change_info,
-                post_messages=user_privileges.can_post_messages,
-                post_stories=user_privileges.can_post_stories,
-                edit_messages=user_privileges.can_edit_messages,
-                edit_stories=user_privileges.can_post_stories,
-                delete_messages=user_privileges.can_delete_messages,
-                delete_stories=user_privileges.can_delete_stories,
-                ban_users=user_privileges.can_restrict_members,
-                invite_users=user_privileges.can_invite_users,
-                pin_messages=user_privileges.can_pin_messages,
-                add_admins=user_privileges.can_promote_members,
-                anonymous=user_privileges.is_anonymous,
-                manage_call=user_privileges.can_manage_video_chats,
-                other=user_privileges.can_manage_chat
-            ) if user_privileges else None
+            if user_privileges:
+                if hasattr(user_privileges, "write"):
+                    user_admin_rights = user_privileges.write()
+                else:
+                    user_admin_rights = raw.types.ChatAdminRights(
+                        change_info=user_privileges.can_change_info,
+                        post_messages=user_privileges.can_post_messages,
+                        post_stories=user_privileges.can_post_stories,
+                        edit_messages=user_privileges.can_edit_messages,
+                        edit_stories=user_privileges.can_edit_stories,
+                        delete_messages=user_privileges.can_delete_messages,
+                        delete_stories=user_privileges.can_delete_stories,
+                        ban_users=user_privileges.can_restrict_members,
+                        invite_users=user_privileges.can_invite_users,
+                        pin_messages=user_privileges.can_pin_messages,
+                        add_admins=user_privileges.can_promote_members,
+                        anonymous=user_privileges.is_anonymous,
+                        manage_call=user_privileges.can_manage_video_chats,
+                        manage_topics=user_privileges.can_manage_topics,
+                        manage_direct_messages=user_privileges.can_manage_direct_messages,
+                        manage_ranks=user_privileges.can_manage_tags,
+                        send_welcome_messages=user_privileges.can_send_welcome_messages,
+                        other=user_privileges.can_manage_chat
+                    )
+            else:
+                user_admin_rights = None
 
-            bot_admin_rights = raw.types.ChatAdminRights(
-                change_info=bot_privileges.can_change_info,
-                post_messages=bot_privileges.can_post_messages,
-                post_stories=bot_privileges.can_post_stories,
-                edit_messages=bot_privileges.can_edit_messages,
-                edit_stories=bot_privileges.can_post_stories,
-                delete_messages=bot_privileges.can_delete_messages,
-                delete_stories=bot_privileges.can_delete_stories,
-                ban_users=bot_privileges.can_restrict_members,
-                invite_users=bot_privileges.can_invite_users,
-                pin_messages=bot_privileges.can_pin_messages,
-                add_admins=bot_privileges.can_promote_members,
-                anonymous=bot_privileges.is_anonymous,
-                manage_call=bot_privileges.can_manage_video_chats,
-                other=bot_privileges.can_manage_chat
-            ) if bot_privileges else None
+            if bot_privileges:
+                if hasattr(bot_privileges, "write"):
+                    bot_admin_rights = bot_privileges.write()
+                else:
+                    bot_admin_rights = raw.types.ChatAdminRights(
+                        change_info=bot_privileges.can_change_info,
+                        post_messages=bot_privileges.can_post_messages,
+                        post_stories=bot_privileges.can_post_stories,
+                        edit_messages=bot_privileges.can_edit_messages,
+                        edit_stories=bot_privileges.can_edit_stories,
+                        delete_messages=bot_privileges.can_delete_messages,
+                        delete_stories=bot_privileges.can_delete_stories,
+                        ban_users=bot_privileges.can_restrict_members,
+                        invite_users=bot_privileges.can_invite_users,
+                        pin_messages=bot_privileges.can_pin_messages,
+                        add_admins=bot_privileges.can_promote_members,
+                        anonymous=bot_privileges.is_anonymous,
+                        manage_call=bot_privileges.can_manage_video_chats,
+                        manage_topics=bot_privileges.can_manage_topics,
+                        manage_direct_messages=bot_privileges.can_manage_direct_messages,
+                        manage_ranks=bot_privileges.can_manage_tags,
+                        send_welcome_messages=bot_privileges.can_send_welcome_messages,
+                        other=bot_privileges.can_manage_chat
+                    )
+            else:
+                bot_admin_rights = None
 
             if self.request_chat.chat_is_channel:
                 peer_type = raw.types.RequestPeerTypeBroadcast(
