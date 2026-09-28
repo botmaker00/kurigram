@@ -881,6 +881,26 @@ rich_msg = types.InputRichMessage(
 await app.send_rich_message(chat_id, rich_msg)
 ```
 
+### Handling Rich Button Callback Queries:
+Jab user kisi `RichMessageButton(callback_data=...)` par click karta hai, Telegram standard `UpdateBotCallbackQuery` bhejta hai, jise Kurigram standard `on_callback_query` decorator se handle karta hai:
+
+```python
+from pyrogram import Client, filters, types
+
+@app.on_callback_query(filters.regex(r"^benchmarks_run$"))
+async def handle_benchmarks(client: Client, query: types.CallbackQuery):
+    # Answer callback notification to remove loading spinner
+    await query.answer("Running benchmarks...", show_alert=False)
+    
+    # Optionally edit the message or send results
+    await query.message.reply_text("Benchmarks started! HyperCrypto speed: 420 MB/s")
+
+@app.on_callback_query(filters.regex(r"^system_status$"))
+async def handle_status(client: Client, query: types.CallbackQuery):
+    # Show modal alert popup
+    await query.answer("System Status: All services operational ✅", show_alert=True)
+```
+
 ### MTProto Serialization Pipeline:
 - `InputRichBlockButtons` serializes directly to MTProto `raw.types.ReplyInlineMarkup(rows=[raw.types.KeyboardButtonRow(...)])`.
 - Individual `RichMessageButton` objects serialize to `raw.types.KeyboardButtonUrl`, `raw.types.KeyboardButtonCallback`, or `raw.types.KeyboardButton`.
