@@ -16,6 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
+import inspect
 import logging
 from datetime import datetime
 from typing import List, Optional, Union
@@ -299,16 +300,24 @@ class SendMessage:
                         rtl=is_rtl,
                         noautolink=skip_entity_detection
                     )
-            elif hasattr(rich_message, "write"):
-                rich_message = await rich_message.write(self)
-                if is_rtl is not None:
+            elif isinstance(rich_message, raw.core.TLObject):
+                if is_rtl is not None and hasattr(rich_message, "rtl"):
                     rich_message.rtl = is_rtl
-                if skip_entity_detection is not None:
+                if skip_entity_detection is not None and hasattr(rich_message, "noautolink"):
+                    rich_message.noautolink = skip_entity_detection
+            elif hasattr(rich_message, "write"):
+                res = rich_message.write(self)
+                if inspect.isawaitable(res):
+                    res = await res
+                rich_message = res
+                if is_rtl is not None and hasattr(rich_message, "rtl"):
+                    rich_message.rtl = is_rtl
+                if skip_entity_detection is not None and hasattr(rich_message, "noautolink"):
                     rich_message.noautolink = skip_entity_detection
             else:
-                if is_rtl is not None:
+                if is_rtl is not None and hasattr(rich_message, "rtl"):
                     rich_message.rtl = is_rtl
-                if skip_entity_detection is not None:
+                if skip_entity_detection is not None and hasattr(rich_message, "noautolink"):
                     rich_message.noautolink = skip_entity_detection
 
         text = text or ""
