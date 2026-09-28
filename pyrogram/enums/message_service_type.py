@@ -233,3 +233,15 @@ class MessageServiceType(AutoName):
 
     CHAT_HAS_PROTECTED_CONTENT_DISABLE_REQUESTED = auto()
     "Chat has protected content disable requested"
+
+    UNIQUE_GIFT = auto()
+    "Unique gift"
+
+    COMMUNITY_CHAT_ADDED = auto()
+    "Community chat added"
+
+    COMMUNITY_CHAT_REMOVED = auto()
+    "Community chat removed"
+
+    COMMUNITY_CHAT_JOINED = auto()
+    "Community chat joined"

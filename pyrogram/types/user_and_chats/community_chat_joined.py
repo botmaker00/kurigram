@@ -15,7 +15,7 @@
 #
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
-
+from typing import Any, Optional
 import pyrogram
 from ..object import Object
 
@@ -29,3 +29,18 @@ class CommunityChatJoined(Object):
         client: "pyrogram.Client" = None,
     ):
         super().__init__(client)
+
+    @staticmethod
+    def _parse(
+        client: "pyrogram.Client" = None,
+        action: Optional[Any] = None,
+    ) -> Optional["CommunityChatJoined"]:
+        if action is None:
+            return None
+        if isinstance(action, CommunityChatJoined):
+            return action
+        return CommunityChatJoined(client=client)
+
+    @staticmethod
+    def read(b: Any, client: "pyrogram.Client" = None) -> "CommunityChatJoined":
+        return CommunityChatJoined._parse(client, b)

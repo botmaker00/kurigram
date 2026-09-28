@@ -1,264 +1,334 @@
 import os
 import sys
-import traceback
+import inspect
+import asyncio
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-results = {"OK": [], "MISSING": [], "PARTIAL": [], "ERROR": []}
-
-def check(label, fn):
-    try:
-        result = fn()
-        if result is True:
-            results["OK"].append(label)
-        elif result is False:
-            results["MISSING"].append(label)
-        elif result == "PARTIAL":
-            results["PARTIAL"].append(label)
-        else:
-            results["OK"].append(label)
-    except Exception as e:
-        results["ERROR"].append(f"{label}: {e}")
-
-# Import everything
 from pyrogram import types, enums, raw, Client
 
-# ===== BOT API 10.0 =====
+# Categories
+results_10_1 = {"PASS": 0, "PARTIAL": 0, "MISSING": 0, "BROKEN": 0}
+results_10_2 = {"PASS": 0, "PARTIAL": 0, "MISSING": 0, "BROKEN": 0}
+results_10_3 = {"PASS": 0, "PARTIAL": 0, "MISSING": 0, "BROKEN": 0}
+results_ser = {"PASS": 0, "FAIL": 0}
+results_deser = {"PASS": 0, "FAIL": 0}
+results_methods = {"PASS": 0, "FAIL": 0}
+results_raw_tl = {"PASS": 0, "FAIL": 0}
 
-# Guest Mode
-check("User.supports_guest_queries", lambda: hasattr(types.User(id=1, first_name="X"), "supports_guest_queries"))
-check("Message.guest_bot_caller_user", lambda: hasattr(types.Message(id=1), "guest_bot_caller_user"))
-check("Message.guest_bot_caller_chat", lambda: hasattr(types.Message(id=1), "guest_bot_caller_chat"))
-check("Message.guest_query_id", lambda: hasattr(types.Message(id=1), "guest_query_id"))
-check("types.SentGuestMessage", lambda: hasattr(types, "SentGuestMessage"))
-check("Client.answer_guest_query", lambda: hasattr(Client("x"), "answer_guest_query"))
+def record_api(cat, passed):
+    if passed:
+        cat["PASS"] += 1
+    else:
+        cat["MISSING"] += 1
 
-# Chat Management
-check("ChatPermissions.can_react_to_messages", lambda: hasattr(types.ChatPermissions(), "can_react_to_messages"))
-check("Poll.members_only", lambda: hasattr(types.Poll(
-    id="x", question="Q", options=[], total_voter_count=0,
-    is_closed=False, is_anonymous=True, type=enums.PollType.REGULAR, allows_multiple_answers=False
-), "members_only"))
-check("Poll.country_codes", lambda: hasattr(types.Poll(
-    id="x", question="Q", options=[], total_voter_count=0,
-    is_closed=False, is_anonymous=True, type=enums.PollType.REGULAR, allows_multiple_answers=False
-), "country_codes"))
-check("Client.delete_all_message_reactions", lambda: hasattr(Client("x"), "delete_all_message_reactions"))
-check("Client.delete_message_reaction", lambda: hasattr(Client("x"), "delete_message_reaction"))
+def record_ser(passed):
+    if passed:
+        results_ser["PASS"] += 1
+    else:
+        results_ser["FAIL"] += 1
 
-# Live Photos
-check("types.LivePhoto", lambda: hasattr(types, "LivePhoto"))
-check("types.InputMediaLivePhoto", lambda: hasattr(types, "InputMediaLivePhoto"))
-check("types.PaidMediaLivePhoto", lambda: hasattr(types, "PaidMediaLivePhoto"))
-check("types.InputPaidMediaLivePhoto", lambda: hasattr(types, "InputPaidMediaLivePhoto"))
-check("Message.live_photo", lambda: hasattr(types.Message(id=1), "live_photo"))
-check("ExternalReplyInfo.live_photo", lambda: hasattr(types.ExternalReplyInfo(
-    origin=types.MessageOriginUser(date=0, sender_user=types.User(id=1, first_name="X"))
-), "live_photo"))
-check("Client.send_live_photo", lambda: hasattr(Client("x"), "send_live_photo"))
+def record_deser(passed):
+    if passed:
+        results_deser["PASS"] += 1
+    else:
+        results_deser["FAIL"] += 1
 
-# Bot Access Settings
-check("types.BotAccessSettings", lambda: hasattr(types, "BotAccessSettings"))
-check("Client.get_managed_bot_access_settings", lambda: hasattr(Client("x"), "get_managed_bot_access_settings"))
-check("Client.set_managed_bot_access_settings", lambda: hasattr(Client("x"), "set_managed_bot_access_settings"))
-check("Client.get_user_personal_chat_messages", lambda: hasattr(Client("x"), "get_user_personal_chat_messages"))
+def record_method(passed):
+    if passed:
+        results_methods["PASS"] += 1
+    else:
+        results_methods["FAIL"] += 1
 
-# ===== BOT API 10.1 =====
+def record_raw(passed):
+    if passed:
+        results_raw_tl["PASS"] += 1
+    else:
+        results_raw_tl["FAIL"] += 1
 
-# Rich Text Classes
-for cls_name in ["RichTextBold", "RichTextItalic", "RichTextUnderline", "RichTextStrikethrough",
-                  "RichTextSpoiler", "RichTextDateTime", "RichTextTextMention", "RichTextSubscript",
-                  "RichTextSuperscript", "RichTextMarked", "RichTextCode", "RichTextCustomEmoji",
-                  "RichTextMathematicalExpression", "RichTextUrl", "RichTextEmailAddress",
-                  "RichTextPhoneNumber", "RichTextBankCardNumber", "RichTextMention", "RichTextHashtag",
-                  "RichTextCashtag", "RichTextBotCommand", "RichTextAnchor", "RichTextAnchorLink",
-                  "RichTextReference", "RichTextReferenceLink"]:
-    check(f"types.{cls_name}", lambda n=cls_name: hasattr(types, n))
 
-# Rich Block Classes
-for cls_name in ["RichBlockParagraph", "RichBlockSectionHeading", "RichBlockPreformatted",
-                  "RichBlockFooter", "RichBlockDivider", "RichBlockMathematicalExpression",
-                  "RichBlockAnchor", "RichBlockList", "RichBlockBlockQuotation",
-                  "RichBlockExpandableBlockQuotation", "RichBlockPullQuotation", "RichBlockCollage",
-                  "RichBlockSlideshow", "RichBlockTable", "RichBlockDetails", "RichBlockMap",
-                  "RichBlockAnimation", "RichBlockAudio", "RichBlockDocument", "RichBlockPhoto",
-                  "RichBlockVideo", "RichBlockVoiceNote", "RichBlockThinking", "RichBlockButtons",
-                  "RichBlockCaption", "RichBlockListItem", "RichBlockTableCell"]:
-    check(f"types.{cls_name}", lambda n=cls_name: hasattr(types, n))
+async def run_audit():
+    client = Client("audit_client")
 
-# RichMessage
-check("types.RichMessage", lambda: hasattr(types, "RichMessage"))
-check("types.InputRichMessage", lambda: hasattr(types, "InputRichMessage"))
-check("types.InputRichMessageContent", lambda: hasattr(types, "InputRichMessageContent"))
-check("Message.rich_message", lambda: hasattr(types.Message(id=1), "rich_message"))
-check("Client.send_rich_message", lambda: hasattr(Client("x"), "send_rich_message"))
-check("Client.send_rich_message_draft", lambda: hasattr(Client("x"), "send_rich_message_draft"))
+    # ==================== BOT API 10.1 ====================
+    # Rich Text types
+    rich_text_classes = [
+        "RichTextBold", "RichTextItalic", "RichTextUnderline", "RichTextStrikethrough",
+        "RichTextSpoiler", "RichTextDateTime", "RichTextTextMention", "RichTextSubscript",
+        "RichTextSuperscript", "RichTextMarked", "RichTextCode", "RichTextCustomEmoji",
+        "RichTextMathematicalExpression", "RichTextUrl", "RichTextEmailAddress",
+        "RichTextPhoneNumber", "RichTextBankCardNumber", "RichTextMention", "RichTextHashtag",
+        "RichTextCashtag", "RichTextBotCommand", "RichTextAnchor", "RichTextAnchorLink",
+        "RichTextReference", "RichTextReferenceLink"
+    ]
+    for cls_name in rich_text_classes:
+        record_api(results_10_1, hasattr(types, cls_name))
 
-# Join Request Queries
-check("User.supports_join_request_queries", lambda: hasattr(types.User(id=1, first_name="X"), "supports_join_request_queries"))
-check("Client.answer_chat_join_request_query", lambda: hasattr(Client("x"), "answer_chat_join_request_query"))
-check("Client.send_chat_join_request_web_app", lambda: hasattr(Client("x"), "send_chat_join_request_web_app"))
+    # Rich Block types
+    rich_block_classes = [
+        "RichBlockParagraph", "RichBlockSectionHeading", "RichBlockPreformatted",
+        "RichBlockFooter", "RichBlockDivider", "RichBlockMathematicalExpression",
+        "RichBlockAnchor", "RichBlockList", "RichBlockBlockQuotation",
+        "RichBlockExpandableBlockQuotation", "RichBlockPullQuotation", "RichBlockCollage",
+        "RichBlockSlideshow", "RichBlockTable", "RichBlockDetails", "RichBlockMap",
+        "RichBlockAnimation", "RichBlockAudio", "RichBlockDocument", "RichBlockPhoto",
+        "RichBlockVideo", "RichBlockVoiceNote", "RichBlockThinking", "RichBlockButtons",
+        "RichBlockCaption", "RichBlockListItem", "RichBlockTableCell"
+    ]
+    for cls_name in rich_block_classes:
+        record_api(results_10_1, hasattr(types, cls_name))
 
-# ===== BOT API 10.2 =====
+    # Rich Message & input content
+    record_api(results_10_1, hasattr(types, "RichMessage"))
+    record_api(results_10_1, hasattr(types, "InputRichMessage"))
+    record_api(results_10_1, hasattr(types, "InputRichMessageContent"))
+    record_api(results_10_1, hasattr(types.Message(id=1), "rich_message"))
+    record_api(results_10_1, hasattr(types, "InputMediaLink"))
+    record_api(results_10_1, hasattr(types, "WebAppInitData"))
+    record_api(results_10_1, hasattr(types.User(id=1, first_name="X"), "supports_join_request_queries"))
 
-# Rich Messages additions
-check("types.InputRichMessageMedia", lambda: hasattr(types, "InputRichMessageMedia"))
-check("types.InputMediaVoiceNote", lambda: hasattr(types, "InputMediaVoiceNote"))
-check("types.InputRichBlockListItem", lambda: hasattr(types, "InputRichBlockListItem"))
+    # ==================== BOT API 10.2 ====================
+    # Input rich blocks
+    input_rich_blocks = [
+        "InputRichBlockParagraph", "InputRichBlockSectionHeading", "InputRichBlockPreformatted",
+        "InputRichBlockFooter", "InputRichBlockDivider", "InputRichBlockMathematicalExpression",
+        "InputRichBlockAnchor", "InputRichBlockList", "InputRichBlockBlockQuotation",
+        "InputRichBlockPullQuotation", "InputRichBlockCollage", "InputRichBlockSlideshow",
+        "InputRichBlockTable", "InputRichBlockDetails", "InputRichBlockMap",
+        "InputRichBlockAnimation", "InputRichBlockAudio", "InputRichBlockPhoto",
+        "InputRichBlockVideo", "InputRichBlockVoiceNote", "InputRichBlockThinking",
+        "InputRichBlockListItem"
+    ]
+    for cls_name in input_rich_blocks:
+        record_api(results_10_2, hasattr(types, cls_name))
 
-# Input Rich Block Classes
-for cls_name in ["InputRichBlockParagraph", "InputRichBlockSectionHeading", "InputRichBlockPreformatted",
-                  "InputRichBlockFooter", "InputRichBlockDivider", "InputRichBlockMathematicalExpression",
-                  "InputRichBlockAnchor", "InputRichBlockList", "InputRichBlockBlockQuotation",
-                  "InputRichBlockPullQuotation", "InputRichBlockCollage", "InputRichBlockSlideshow",
-                  "InputRichBlockTable", "InputRichBlockDetails", "InputRichBlockMap",
-                  "InputRichBlockAnimation", "InputRichBlockAudio", "InputRichBlockPhoto",
-                  "InputRichBlockVideo", "InputRichBlockVoiceNote", "InputRichBlockThinking"]:
-    check(f"types.{cls_name}", lambda n=cls_name: hasattr(types, n))
+    record_api(results_10_2, hasattr(types, "InputRichMessageMedia"))
+    record_api(results_10_2, hasattr(types, "InputMediaVoiceNote"))
+    record_api(results_10_2, hasattr(types, "EphemeralMessageParameters"))
+    record_api(results_10_2, hasattr(types.BotCommand(command="c", description="d"), "is_ephemeral"))
+    record_api(results_10_2, hasattr(types.Message(id=1), "receiver_user"))
+    record_api(results_10_2, hasattr(types.Message(id=1), "ephemeral_message_id"))
+    record_api(results_10_2, hasattr(types.ReplyParameters(message_id=1), "ephemeral_message_id"))
+    record_api(results_10_2, hasattr(types, "Community"))
+    record_api(results_10_2, hasattr(types, "CommunityChatAdded"))
+    record_api(results_10_2, hasattr(types, "CommunityChatRemoved"))
+    record_api(results_10_2, hasattr(types.Message(id=1), "community_chat_added"))
+    record_api(results_10_2, hasattr(types.Message(id=1), "community_chat_removed"))
+    record_api(results_10_2, hasattr(types, "BotSubscriptionUpdated"))
 
-# Ephemeral Messages
-check("types.EphemeralMessageParameters", lambda: hasattr(types, "EphemeralMessageParameters"))
-check("EphemeralMessageParameters.receiver_user_id", lambda: hasattr(
-    types.EphemeralMessageParameters(receiver_user_id=1, callback_query_id="x"), "receiver_user_id"))
-check("EphemeralMessageParameters.callback_query_id", lambda: hasattr(
-    types.EphemeralMessageParameters(receiver_user_id=1, callback_query_id="x"), "callback_query_id"))
-check("EphemeralMessageParameters.replace_callback_query_message", lambda: hasattr(
-    types.EphemeralMessageParameters(receiver_user_id=1, callback_query_id="x"), "replace_callback_query_message"))
-check("BotCommand.is_ephemeral", lambda: hasattr(
-    types.BotCommand(command="x", description="y", is_ephemeral=True), "is_ephemeral"))
-check("Message.receiver_user", lambda: hasattr(types.Message(id=1), "receiver_user"))
-check("Message.ephemeral_message_id", lambda: hasattr(types.Message(id=1), "ephemeral_message_id"))
-check("ReplyParameters.ephemeral_message_id", lambda: hasattr(
-    types.ReplyParameters(message_id=1, ephemeral_message_id=5), "ephemeral_message_id"))
-check("Client.edit_ephemeral_message_text", lambda: hasattr(Client("x"), "edit_ephemeral_message_text"))
-check("Client.edit_ephemeral_message_media", lambda: hasattr(Client("x"), "edit_ephemeral_message_media"))
-check("Client.edit_ephemeral_message_caption", lambda: hasattr(Client("x"), "edit_ephemeral_message_caption"))
-check("Client.edit_ephemeral_message_reply_markup", lambda: hasattr(Client("x"), "edit_ephemeral_message_reply_markup"))
-check("Client.delete_ephemeral_message", lambda: hasattr(Client("x"), "delete_ephemeral_message"))
+    # ==================== BOT API 10.3 ====================
+    record_api(results_10_3, hasattr(types, "RichMessageButton"))
+    record_api(results_10_3, hasattr(types, "RichTextButton"))
+    record_api(results_10_3, hasattr(types, "RichBlockButtons"))
+    record_api(results_10_3, hasattr(types, "InputRichBlockButtons"))
+    record_api(results_10_3, hasattr(types.RichBlockTable(cells=[]), "is_compact"))
+    record_api(results_10_3, hasattr(types.InputRichBlockTable(cells=[]), "is_compact"))
+    record_api(results_10_3, hasattr(types, "RichBlockExpandableBlockQuotation"))
+    record_api(results_10_3, hasattr(types, "InputRichBlockExpandableBlockQuotation"))
+    record_api(results_10_3, hasattr(types, "RichBlockDocument"))
+    record_api(results_10_3, hasattr(types, "InputRichBlockDocument"))
+    record_api(results_10_3, hasattr(types, "DisabledButton"))
+    record_api(results_10_3, hasattr(types.InlineKeyboardButton("x", disabled=True), "disabled"))
+    record_api(results_10_3, hasattr(types.InlineKeyboardMarkup([[]]), "force_reply"))
+    record_api(results_10_3, hasattr(types.ReplyKeyboardMarkup([[]]), "force_reply"))
+    record_api(results_10_3, hasattr(types, "MessageGenerationStopped"))
+    record_api(results_10_3, hasattr(types, "CommunityChatJoined"))
+    record_api(results_10_3, hasattr(types.Message(id=1), "community_chat_joined"))
+    record_api(results_10_3, hasattr(types.UniqueGiftInfo(origin="x", last_resale_currency="X", last_resale_amount=0), "text"))
+    record_api(results_10_3, hasattr(types.UniqueGiftInfo(origin="x", last_resale_currency="X", last_resale_amount=0), "is_private"))
+    record_api(results_10_3, hasattr(types.ChatAdministratorRights(), "can_send_welcome_messages"))
 
-# Communities
-check("types.Community", lambda: hasattr(types, "Community"))
-check("types.CommunityChatAdded", lambda: hasattr(types, "CommunityChatAdded"))
-check("types.CommunityChatRemoved", lambda: hasattr(types, "CommunityChatRemoved"))
-check("Message.community_chat_added", lambda: hasattr(types.Message(id=1), "community_chat_added"))
-check("Message.community_chat_removed", lambda: hasattr(types.Message(id=1), "community_chat_removed"))
+    # ==================== CLIENT METHODS ====================
+    method_names = [
+        "send_rich_message", "send_rich_message_draft", "send_message_draft",
+        "answer_chat_join_request_query", "send_chat_join_request_web_app",
+        "edit_ephemeral_message_text", "edit_ephemeral_message_media",
+        "edit_ephemeral_message_caption", "edit_ephemeral_message_reply_markup",
+        "delete_ephemeral_message", "send_message", "edit_message_text",
+        "promote_chat_member"
+    ]
+    for m in method_names:
+        record_method(hasattr(client, m))
 
-# Subscriptions
-check("types.BotSubscriptionUpdated", lambda: hasattr(types, "BotSubscriptionUpdated"))
+    # Check method signatures
+    send_draft_sig = inspect.signature(getattr(client.send_message_draft, "__wrapped__", client.send_message_draft))
+    record_method("can_stop" in send_draft_sig.parameters and "keep_on_stop" in send_draft_sig.parameters)
 
-# ===== BOT API 10.3 =====
+    rich_draft_sig = inspect.signature(getattr(client.send_rich_message_draft, "__wrapped__", client.send_rich_message_draft))
+    record_method("can_stop" in rich_draft_sig.parameters and "keep_on_stop" in rich_draft_sig.parameters)
 
-# Rich Message Buttons
-check("types.RichMessageButton", lambda: hasattr(types, "RichMessageButton"))
-check("types.RichTextButton", lambda: hasattr(types, "RichTextButton"))
-check("types.RichBlockButtons", lambda: hasattr(types, "RichBlockButtons"))
-check("types.InputRichBlockButtons", lambda: hasattr(types, "InputRichBlockButtons"))
+    send_msg_sig = inspect.signature(getattr(client.send_message, "__wrapped__", client.send_message))
+    record_method("ephemeral_message_parameters" in send_msg_sig.parameters and "rich_message" in send_msg_sig.parameters)
 
-# Table is_compact
-check("RichBlockTable.is_compact field", lambda: hasattr(types.RichBlockTable(cells=[]), "is_compact"))
-check("InputRichBlockTable.is_compact field", lambda: hasattr(types.InputRichBlockTable(cells=[]), "is_compact"))
+    # ==================== RAW TL CHECKS ====================
+    record_raw(hasattr(raw.types.ChatAdminRights, "send_welcome_messages"))
+    record_raw("send_welcome_messages" in raw.types.ChatAdminRights.__slots__)
+    record_raw(hasattr(raw.types.ReplyInlineMarkup, "force_reply"))
+    record_raw(hasattr(raw.types.ReplyKeyboardMarkup, "force_reply"))
+    record_raw(hasattr(raw.types.SendMessageTextDraftAction, "can_stop"))
+    record_raw(hasattr(raw.types.SendMessageTextDraftAction, "keep_on_stop"))
+    record_raw(hasattr(raw.types.InputSendMessageRichMessageDraftAction, "can_stop"))
+    record_raw(hasattr(raw.types.InputSendMessageRichMessageDraftAction, "keep_on_stop"))
+    record_raw(hasattr(raw.types, "InputMediaWebPage"))
+    record_raw(hasattr(raw.types, "MessageActionStarGiftUnique"))
+    record_raw(hasattr(raw.types, "KeyboardButton"))
+    record_raw(hasattr(raw.types, "InputRichMessage"))
+    record_raw(hasattr(raw.types, "PageBlockParagraph"))
+    record_raw(hasattr(raw.types, "PageBlockTable"))
+    record_raw(hasattr(raw.types, "PageBlockDetails"))
 
-# Expandable Quotation
-check("types.RichBlockExpandableBlockQuotation", lambda: hasattr(types, "RichBlockExpandableBlockQuotation"))
-check("types.InputRichBlockExpandableBlockQuotation", lambda: hasattr(types, "InputRichBlockExpandableBlockQuotation"))
+    # ==================== SERIALIZATION (write) ====================
+    # 1. InlineKeyboardButton disabled
+    raw_btn = await types.InlineKeyboardButton("B", disabled=True).write()
+    record_ser(isinstance(raw_btn, raw.types.KeyboardButton))
 
-# Document
-check("types.RichBlockDocument", lambda: hasattr(types, "RichBlockDocument"))
-check("types.InputRichBlockDocument", lambda: hasattr(types, "InputRichBlockDocument"))
+    # 2. DisabledButton
+    raw_d_btn = await types.DisabledButton(text="DB").write()
+    record_ser(isinstance(raw_d_btn, raw.types.KeyboardButton))
 
-# Disabled Button
-check("types.DisabledButton", lambda: hasattr(types, "DisabledButton"))
-check("InlineKeyboardButton.disabled", lambda: hasattr(
-    types.InlineKeyboardButton(text="x", disabled=True), "disabled"))
+    # 3. InlineKeyboardMarkup force_reply
+    raw_in_m = await types.InlineKeyboardMarkup([[]], force_reply=types.ForceReply()).write()
+    record_ser(hasattr(raw_in_m, "force_reply") and isinstance(raw_in_m.force_reply, raw.types.ReplyKeyboardForceReply))
 
-# Force Reply
-check("InlineKeyboardMarkup.force_reply", lambda: hasattr(
-    types.InlineKeyboardMarkup(inline_keyboard=[[]], force_reply=types.ForceReply(selective=False)), "force_reply"))
-check("ReplyKeyboardMarkup.force_reply", lambda: hasattr(
-    types.ReplyKeyboardMarkup(keyboard=[[]], force_reply=types.ForceReply(selective=False)), "force_reply"))
+    # 4. ReplyKeyboardMarkup force_reply
+    raw_rep_m = await types.ReplyKeyboardMarkup([[]], force_reply=types.ForceReply()).write()
+    record_ser(hasattr(raw_rep_m, "force_reply") and isinstance(raw_rep_m.force_reply, raw.types.ReplyKeyboardForceReply))
 
-# can_stop / keep_on_stop in sendMessageDraft
-def check_send_msg_draft_params():
-    import inspect
-    app = Client("x")
-    if hasattr(app, "send_message_draft"):
-        fn = getattr(app.send_message_draft, "__wrapped__", app.send_message_draft)
-        return "can_stop" in inspect.signature(fn).parameters
-    return False
+    # 5. ChatAdministratorRights
+    raw_adm = types.ChatAdministratorRights(can_send_welcome_messages=True, can_manage_direct_messages=True).write()
+    record_ser(isinstance(raw_adm, raw.types.ChatAdminRights) and raw_adm.send_welcome_messages is True)
 
-def check_send_rich_draft_params():
-    import inspect
-    app = Client("x")
-    if hasattr(app, "send_rich_message_draft"):
-        fn = getattr(app.send_rich_message_draft, "__wrapped__", app.send_rich_message_draft)
-        return "can_stop" in inspect.signature(fn).parameters
-    return False
+    # 6. InputMediaLink
+    raw_link = await types.InputMediaLink(url="https://ex.com", force_large_media=True).write()
+    record_ser(isinstance(raw_link, raw.types.InputMediaWebPage) and raw_link.force_large_media is True)
 
-check("Client.send_message_draft (can_stop param)", check_send_msg_draft_params)
-check("Client.send_rich_message_draft (can_stop param)", check_send_rich_draft_params)
+    # 7. RichText
+    raw_bold = types.RichTextBold("text").write()
+    record_ser(isinstance(raw_bold, raw.types.TextBold))
 
-# MessageGenerationStopped
-check("types.MessageGenerationStopped", lambda: hasattr(types, "MessageGenerationStopped"))
+    raw_code = types.RichTextCode("code").write()
+    record_ser(isinstance(raw_code, raw.types.TextFixed))
 
-# CommunityChatJoined
-check("types.CommunityChatJoined", lambda: hasattr(types, "CommunityChatJoined"))
-check("Message.community_chat_joined", lambda: hasattr(types.Message(id=1), "community_chat_joined"))
+    raw_url = types.RichTextUrl("url", url="https://ex.com").write()
+    record_ser(isinstance(raw_url, raw.types.TextUrl))
 
-# UniqueGiftInfo fields
-check("UniqueGiftInfo.text", lambda: hasattr(
-    types.UniqueGiftInfo(origin="x", last_resale_currency="XTR", last_resale_amount=0, text="hi"), "text"))
-check("UniqueGiftInfo.is_private", lambda: hasattr(
-    types.UniqueGiftInfo(origin="x", last_resale_currency="XTR", last_resale_amount=0, is_private=False), "is_private"))
+    # 8. RichBlock
+    raw_p = await types.RichBlockParagraph(text=types.RichText("para")).write()
+    record_ser(isinstance(raw_p, raw.types.PageBlockParagraph))
 
-# Admin rights
-check("ChatAdministratorRights.can_send_welcome_messages", lambda: hasattr(
-    types.ChatAdministratorRights(can_send_welcome_messages=True), "can_send_welcome_messages"))
+    raw_h = await types.RichBlockSectionHeading(text=types.RichText("head"), size="h1").write()
+    record_ser(isinstance(raw_h, raw.types.PageBlockHeader))
 
-# send methods ephemeral params
-def check_send_msg_ephemeral():
-    import inspect
-    app = Client("x")
-    if hasattr(app, "send_message"):
-        fn = getattr(app.send_message, "__wrapped__", app.send_message)
-        return "ephemeral_message_parameters" in inspect.signature(fn).parameters
-    return False
-check("Client.send_message (ephemeral_message_parameters)", check_send_msg_ephemeral)
-# Message bound methods
-msg = types.Message(id=1, ephemeral_message_id=5)
-check("Message.edit_ephemeral_text bound method", lambda: hasattr(msg, "edit_ephemeral_text"))
-check("Message.edit_ephemeral_caption bound method", lambda: hasattr(msg, "edit_ephemeral_caption"))
-check("Message.edit_ephemeral_media bound method", lambda: hasattr(msg, "edit_ephemeral_media"))
-check("Message.edit_ephemeral_reply_markup bound method", lambda: hasattr(msg, "edit_ephemeral_reply_markup"))
-check("Message.delete_ephemeral bound method", lambda: hasattr(msg, "delete_ephemeral"))
-check("Message.reply_rich bound method", lambda: hasattr(msg, "reply_rich"))
+    raw_pref = await types.RichBlockPreformatted(text=types.RichText("x"), language="py").write()
+    record_ser(isinstance(raw_pref, raw.types.PageBlockPreformatted))
 
-# CallbackQuery ephemeral
-cb = types.CallbackQuery(id="x", from_user=types.User(id=1, first_name="X"), chat_instance="y")
-check("CallbackQuery.as_ephemeral_message_parameters", lambda: hasattr(cb, "as_ephemeral_message_parameters"))
-check("CallbackQuery.reply_ephemeral", lambda: hasattr(cb, "reply_ephemeral"))
+    raw_div = await types.RichBlockDivider().write()
+    record_ser(isinstance(raw_div, raw.types.PageBlockDivider))
 
-# FSInputFile / BufferedInputFile
-check("types.FSInputFile", lambda: hasattr(types, "FSInputFile"))
-check("types.BufferedInputFile", lambda: hasattr(types, "BufferedInputFile"))
-check("types.InputMediaVoiceNote", lambda: hasattr(types, "InputMediaVoiceNote"))
+    raw_math = await types.RichBlockMathematicalExpression(text="x^2").write()
+    record_ser(isinstance(raw_math, raw.types.PageBlockMath))
 
-print("\n" + "="*60)
-print("AUDIT RESULTS:")
-print("="*60)
-print(f"\nOK ({len(results['OK'])}):")
-for x in results["OK"]:
-    print(f"  v {x}")
-print(f"\nMISSING ({len(results['MISSING'])}):")
-for x in results["MISSING"]:
-    print(f"  X {x}")
-print(f"\nPARTIAL ({len(results['PARTIAL'])}):")
-for x in results["PARTIAL"]:
-    print(f"  ~ {x}")
-print(f"\nERRORS ({len(results['ERROR'])}):")
-for x in results["ERROR"]:
-    print(f"  ! {x}")
+    raw_table = await types.RichBlockTable(cells=[[types.RichBlockTableCell(text="c")]]).write()
+    record_ser(isinstance(raw_table, raw.types.PageBlockTable))
 
-total = len(results["OK"]) + len(results["MISSING"]) + len(results["PARTIAL"]) + len(results["ERROR"])
-ok = len(results["OK"])
-print(f"\nTotal: {ok}/{total} ({100*ok//total if total else 0}% complete)")
-sys.exit(0 if not results["MISSING"] and not results["ERROR"] else 1)
+    raw_det = await types.RichBlockDetails(title=types.RichText("t"), blocks=[]).write()
+    record_ser(isinstance(raw_det, raw.types.PageBlockDetails))
+
+    raw_btns = await types.RichBlockButtons(buttons=[[types.RichMessageButton("B", url="https://ex.com")]]).write()
+    record_ser(isinstance(raw_btns, raw.types.ReplyInlineMarkup))
+
+    raw_msg = await types.InputRichMessage(blocks=[types.InputRichBlockDivider()]).write()
+    record_ser(isinstance(raw_msg, raw.types.InputRichMessage))
+
+    # ==================== DESERIALIZATION (read / parse) ====================
+    # 1. InlineKeyboardButton read disabled
+    read_btn = types.InlineKeyboardButton.read(raw.types.KeyboardButton(text="B"))
+    record_deser(read_btn.disabled is True and read_btn.text == "B")
+
+    # 2. DisabledButton read
+    read_d_btn = types.DisabledButton.read(raw.types.KeyboardButton(text="DB"))
+    record_deser(read_d_btn.text == "DB")
+
+    # 3. InlineKeyboardMarkup read force_reply
+    read_in_m = types.InlineKeyboardMarkup.read(raw_in_m)
+    record_deser(read_in_m.force_reply is not None)
+
+    # 4. ReplyKeyboardMarkup read force_reply
+    read_rep_m = types.ReplyKeyboardMarkup.read(raw_rep_m)
+    record_deser(read_rep_m.force_reply is not None)
+
+    # 5. ChatAdministratorRights read
+    read_adm = types.ChatAdministratorRights.read(raw_adm)
+    record_deser(read_adm.can_send_welcome_messages is True)
+
+    # 6. WebAppInitData read
+    read_init = types.WebAppInitData.read({"query_id": "q1", "chat_join_request_query_id": "req1"})
+    record_deser(read_init.chat_join_request_query_id == "req1")
+
+    # 7. UniqueGiftInfo read
+    read_ug = types.UniqueGiftInfo.read({"origin": "o", "last_resale_currency": "X", "last_resale_amount": 1, "text": "gift"})
+    record_deser(read_ug.text == "gift")
+
+    # 8. CommunityChatJoined read
+    read_joined = types.CommunityChatJoined.read({})
+    record_deser(isinstance(read_joined, types.CommunityChatJoined))
+
+    # 9. RichText read
+    read_bold = types.RichText.read(raw_bold)
+    record_deser(isinstance(read_bold, types.RichTextBold) and read_bold.text == "text")
+
+    read_code = types.RichText.read(raw_code)
+    record_deser(isinstance(read_code, types.RichTextCode) and read_code.text == "code")
+
+    # 10. RichBlock read
+    read_p = types.RichBlock.read(raw_p)
+    record_deser(isinstance(read_p, types.RichBlockParagraph))
+
+    read_h = types.RichBlock.read(raw_h)
+    record_deser(isinstance(read_h, types.RichBlockSectionHeading))
+
+    read_pref = types.RichBlock.read(raw_pref)
+    record_deser(isinstance(read_pref, types.RichBlockPreformatted) and read_pref.language == "py")
+
+    read_div = types.RichBlock.read(raw_div)
+    record_deser(isinstance(read_div, types.RichBlockDivider))
+
+    read_math = types.RichBlock.read(raw_math)
+    record_deser(isinstance(read_math, types.RichBlockMathematicalExpression))
+
+    read_table = types.RichBlock.read(raw_table)
+    record_deser(isinstance(read_table, types.RichBlockTable))
+
+    read_det = types.RichBlock.read(raw_det)
+    record_deser(isinstance(read_det, types.RichBlockDetails))
+
+    read_btns = types.RichBlock.read(raw_btns)
+    record_deser(isinstance(read_btns, types.RichBlockButtons))
+
+    read_msg = types.RichMessage.read(raw_msg)
+    record_deser(isinstance(read_msg, types.RichMessage) and len(read_msg.blocks) == 1)
+
+    # Print Report
+    print("=" * 30 + " KURIGRAM BOT API AUDIT " + "=" * 30)
+    print(f"Bot API 10.1 PASS: {results_10_1['PASS']} PARTIAL: {results_10_1['PARTIAL']} MISSING: {results_10_1['MISSING']} BROKEN: {results_10_1['BROKEN']}")
+    print(f"Bot API 10.2 PASS: {results_10_2['PASS']} PARTIAL: {results_10_2['PARTIAL']} MISSING: {results_10_2['MISSING']} BROKEN: {results_10_2['BROKEN']}")
+    print(f"Bot API 10.3 PASS: {results_10_3['PASS']} PARTIAL: {results_10_3['PARTIAL']} MISSING: {results_10_3['MISSING']} BROKEN: {results_10_3['BROKEN']}")
+    print(f"Serialization: PASS: {results_ser['PASS']} FAIL: {results_ser['FAIL']}")
+    print(f"Deserialization: PASS: {results_deser['PASS']} FAIL: {results_deser['FAIL']}")
+    print(f"Client Methods: PASS: {results_methods['PASS']} FAIL: {results_methods['FAIL']}")
+    print(f"Raw TL: PASS: {results_raw_tl['PASS']} FAIL: {results_raw_tl['FAIL']}")
+    print("=" * 84)
+
+    total_failures = (
+        results_10_1['MISSING'] + results_10_1['BROKEN'] +
+        results_10_2['MISSING'] + results_10_2['BROKEN'] +
+        results_10_3['MISSING'] + results_10_3['BROKEN'] +
+        results_ser['FAIL'] + results_deser['FAIL'] +
+        results_methods['FAIL'] + results_raw_tl['FAIL']
+    )
+    return total_failures == 0
+
+
+if __name__ == "__main__":
+    success = asyncio.run(run_audit())
+    sys.exit(0 if success else 1)

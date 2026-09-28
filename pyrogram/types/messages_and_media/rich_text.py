@@ -30,6 +30,14 @@ class RichText(Object):
             return self.text == other.text and self.type == other.type
         return super().__eq__(other)
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextPlain(text=self.text or "")
+
+    @staticmethod
+    def read(b: Any, client: "pyrogram.Client" = None) -> "RichText":
+        return RichText._parse(client, b)
+
     @staticmethod
     def _parse(
         client: "pyrogram.Client" = None,
@@ -175,30 +183,54 @@ class RichTextBold(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.BOLD)
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextBold(text=raw.types.TextPlain(text=self.text or ""))
+
 
 class RichTextItalic(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.ITALIC)
+
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextItalic(text=raw.types.TextPlain(text=self.text or ""))
 
 
 class RichTextUnderline(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.UNDERLINE)
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextUnderline(text=raw.types.TextPlain(text=self.text or ""))
+
 
 class RichTextStrikethrough(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.STRIKETHROUGH)
+
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextStrike(text=raw.types.TextPlain(text=self.text or ""))
 
 
 class RichTextSpoiler(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.SPOILER)
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextSpoiler(text=raw.types.TextPlain(text=self.text or ""))
+
 
 class RichTextCode(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.CODE)
+
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextFixed(text=raw.types.TextPlain(text=self.text or ""))
 
 
 class RichTextDateTime(RichText):
@@ -206,26 +238,47 @@ class RichTextDateTime(RichText):
         super().__init__(text=text, type=enums.RichTextType.DATE_TIME)
         self.date_time_format = date_time_format
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextDate(text=raw.types.TextPlain(text=self.text or ""))
+
 
 class RichTextTextMention(RichText):
     def __init__(self, text: str, user: Optional[Any] = None):
         super().__init__(text=text, type=enums.RichTextType.TEXT_MENTION)
         self.user = user
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        user_id = getattr(self.user, "id", self.user) if self.user is not None else 0
+        return raw.types.TextMentionName(text=raw.types.TextPlain(text=self.text or ""), user_id=int(user_id or 0))
+
 
 class RichTextSubscript(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.SUBSCRIPT)
+
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextSubscript(text=raw.types.TextPlain(text=self.text or ""))
 
 
 class RichTextSuperscript(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.SUPERSCRIPT)
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextSuperscript(text=raw.types.TextPlain(text=self.text or ""))
+
 
 class RichTextMarked(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.MARKED)
+
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextMarked(text=raw.types.TextPlain(text=self.text or ""))
 
 
 class RichTextCustomEmoji(RichText):
@@ -233,10 +286,19 @@ class RichTextCustomEmoji(RichText):
         super().__init__(text=text, type=enums.RichTextType.CUSTOM_EMOJI)
         self.custom_emoji_id = custom_emoji_id
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        doc_id = int(self.custom_emoji_id or 0)
+        return raw.types.TextCustomEmoji(alt=self.text or "", document_id=doc_id)
+
 
 class RichTextMathematicalExpression(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.MATHEMATICAL_EXPRESSION)
+
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextMath(source=self.text or "")
 
 
 class RichTextUrl(RichText):
@@ -244,20 +306,36 @@ class RichTextUrl(RichText):
         super().__init__(text=text, type=enums.RichTextType.URL)
         self.url = url or text
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextUrl(text=raw.types.TextPlain(text=self.text or ""), url=self.url or self.text or "", webpage_id=0)
+
 
 class RichTextEmailAddress(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.EMAIL_ADDRESS)
+
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextEmail(text=raw.types.TextPlain(text=self.text or ""), email=self.text or "")
 
 
 class RichTextPhoneNumber(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.PHONE_NUMBER)
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextPhone(text=raw.types.TextPlain(text=self.text or ""), phone=self.text or "")
+
 
 class RichTextBankCardNumber(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.BANK_CARD_NUMBER)
+
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextBankCard(text=raw.types.TextPlain(text=self.text or ""))
 
 
 class RichTextMention(RichText):
@@ -265,20 +343,36 @@ class RichTextMention(RichText):
         super().__init__(text=text, type=enums.RichTextType.MENTION)
         self.user_id = user_id
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextMention(text=raw.types.TextPlain(text=self.text or ""))
+
 
 class RichTextHashtag(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.HASHTAG)
+
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextHashtag(text=raw.types.TextPlain(text=self.text or ""))
 
 
 class RichTextCashtag(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.CASHTAG)
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextCashtag(text=raw.types.TextPlain(text=self.text or ""))
+
 
 class RichTextBotCommand(RichText):
     def __init__(self, text: str):
         super().__init__(text=text, type=enums.RichTextType.BOT_COMMAND)
+
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextBotCommand(text=raw.types.TextPlain(text=self.text or ""))
 
 
 class RichTextAnchor(RichText):
@@ -286,11 +380,19 @@ class RichTextAnchor(RichText):
         super().__init__(text=text, type=enums.RichTextType.ANCHOR)
         self.name = name
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextAnchor(text=raw.types.TextPlain(text=self.text or ""), name=self.name or "")
+
 
 class RichTextAnchorLink(RichText):
     def __init__(self, text: str, anchor_name: Optional[str] = None):
         super().__init__(text=text, type=enums.RichTextType.ANCHOR_LINK)
         self.anchor_name = anchor_name
+
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextAnchor(text=raw.types.TextPlain(text=self.text or ""), name=self.anchor_name or "")
 
 
 class RichTextReference(RichText):
@@ -298,14 +400,59 @@ class RichTextReference(RichText):
         super().__init__(text=text, type=enums.RichTextType.REFERENCE)
         self.index = index
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextPlain(text=self.text or "")
+
 
 class RichTextReferenceLink(RichText):
     def __init__(self, text: str, reference_index: Optional[int] = None):
         super().__init__(text=text, type=enums.RichTextType.REFERENCE_LINK)
         self.reference_index = reference_index
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        return raw.types.TextPlain(text=self.text or "")
+
 
 class RichTextButton(RichText):
     def __init__(self, text: str, button: Optional[Any] = None):
         super().__init__(text=text, type=enums.RichTextType.BUTTON)
         self.button = button
+
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
+        from pyrogram import raw
+        url = getattr(self.button, "url", None) or ""
+        return raw.types.TextUrl(text=raw.types.TextPlain(text=self.text or ""), url=url, webpage_id=0)
+
+
+# InputRichText aliases for Bot API compatibility
+InputRichText = RichText
+InputRichTextPlain = RichText
+InputRichTextBold = RichTextBold
+InputRichTextItalic = RichTextItalic
+InputRichTextUnderline = RichTextUnderline
+InputRichTextStrikethrough = RichTextStrikethrough
+InputRichTextSpoiler = RichTextSpoiler
+InputRichTextCode = RichTextCode
+InputRichTextUrl = RichTextUrl
+InputRichTextEmailAddress = RichTextEmailAddress
+InputRichTextPhoneNumber = RichTextPhoneNumber
+InputRichTextBankCardNumber = RichTextBankCardNumber
+InputRichTextMention = RichTextMention
+InputRichTextTextMention = RichTextTextMention
+InputRichTextHashtag = RichTextHashtag
+InputRichTextCashtag = RichTextCashtag
+InputRichTextBotCommand = RichTextBotCommand
+InputRichTextAnchor = RichTextAnchor
+InputRichTextAnchorLink = RichTextAnchorLink
+InputRichTextReference = RichTextReference
+InputRichTextReferenceLink = RichTextReferenceLink
+InputRichTextCustomEmoji = RichTextCustomEmoji
+InputRichTextMathematicalExpression = RichTextMathematicalExpression
+InputRichTextSubscript = RichTextSubscript
+InputRichTextSuperscript = RichTextSuperscript
+InputRichTextMarked = RichTextMarked
+InputRichTextDateTime = RichTextDateTime
+InputRichTextButton = RichTextButton
+

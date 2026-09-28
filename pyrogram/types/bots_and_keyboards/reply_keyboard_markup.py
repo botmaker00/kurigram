@@ -91,17 +91,26 @@ class ReplyKeyboardMarkup(Object):
 
             keyboard.append(row)
 
+        force_reply = None
+        raw_force = getattr(kb, "force_reply", None)
+        if raw_force is not None:
+            if isinstance(raw_force, raw.types.ReplyKeyboardForceReply):
+                force_reply = types.ForceReply.read(raw_force)
+            elif isinstance(raw_force, types.ForceReply):
+                force_reply = raw_force
+
         return ReplyKeyboardMarkup(
             keyboard=keyboard,
             is_persistent=kb.persistent,
             resize_keyboard=kb.resize,
             one_time_keyboard=kb.single_use,
             selective=kb.selective,
-            placeholder=kb.placeholder
+            placeholder=kb.placeholder,
+            force_reply=force_reply
         )
 
-    async def write(self, _: "pyrogram.Client"):
-        return raw.types.ReplyKeyboardMarkup(
+    async def write(self, _: "pyrogram.Client" = None):
+        markup = raw.types.ReplyKeyboardMarkup(
             rows=[raw.types.KeyboardButtonRow(
                 buttons=[
                     types.KeyboardButton(j).write()
@@ -115,3 +124,11 @@ class ReplyKeyboardMarkup(Object):
             persistent=self.is_persistent or None,
             placeholder=self.placeholder or None
         )
+        if self.force_reply is not None:
+            if isinstance(self.force_reply, types.ForceReply):
+                markup.force_reply = await self.force_reply.write(_)
+            elif self.force_reply is True:
+                markup.force_reply = await types.ForceReply().write(_)
+            else:
+                markup.force_reply = self.force_reply
+        return markup

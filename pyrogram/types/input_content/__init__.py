@@ -34,6 +34,7 @@ from .input_media_animation import InputMediaAnimation
 from .input_media_audio import InputMediaAudio
 from .input_media_document import InputMediaDocument
 from .input_media_live_photo import InputMediaLivePhoto
+from .input_media_link import InputMediaLink
 from .input_media_location import InputMediaLocation
 from .input_media_photo import InputMediaPhoto
 from .input_media_video import InputMediaVideo
@@ -88,6 +89,7 @@ __all__ = [
     "InputMediaAudio",
     "InputMediaDocument",
     "InputMediaLivePhoto",
+    "InputMediaLink",
     "InputMediaLocation",
     "InputMediaVenue",
     "InputMediaPhoto",

@@ -63,6 +63,7 @@ from .copy_text_button import CopyTextButton
 from .prepared_keyboard_button import PreparedKeyboardButton
 from .shipping_address import ShippingAddress
 from .web_app_info import WebAppInfo
+from .web_app_init_data import WebAppInitData
 
 __all__ = [
     "BotAccessSettings",
@@ -112,4 +113,5 @@ __all__ = [
     "DisabledButton",
     "CopyTextButton",
     "PreparedKeyboardButton",
+    "WebAppInitData",
 ]

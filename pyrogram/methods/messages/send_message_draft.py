@@ -141,7 +141,9 @@ class SendMessageDraft:
         if rich_message is not None:
             action = raw.types.InputSendMessageRichMessageDraftAction(
                 random_id=draft_id,
-                rich_message=rich_message
+                rich_message=rich_message,
+                can_stop=can_stop,
+                keep_on_stop=keep_on_stop,
             )
         else:
             action = raw.types.SendMessageTextDraftAction(
@@ -149,6 +151,8 @@ class SendMessageDraft:
                 text=await types.FormattedText(
                     text=text, parse_mode=parse_mode, entities=entities
                 ).write(self),
+                can_stop=can_stop,
+                keep_on_stop=keep_on_stop,
             )
 
         return await self.invoke(

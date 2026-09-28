@@ -76,6 +76,27 @@ class RichMessage(Object):
             is_rtl=is_rtl,
         )
 
+    def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichMessage":
+        from pyrogram import raw
+        raw_blocks = []
+        if self.blocks:
+            for b in self.blocks:
+                if hasattr(b, "write"):
+                    raw_blocks.append(b.write(client))
+                else:
+                    raw_blocks.append(b)
+        return raw.types.RichMessage(
+            blocks=raw_blocks,
+            photos=[],
+            documents=[],
+            rtl=self.is_rtl,
+            part=None,
+        )
+
+    @staticmethod
+    def read(b: Any, client: "pyrogram.Client" = None) -> "RichMessage":
+        return RichMessage._parse(client, b)
+
 
 class RichMessageButton(Object):
     """Describes a button in a rich formatted message.
@@ -93,8 +114,8 @@ class RichMessageButton(Object):
 
     def __init__(
         self,
+        text: str = "",
         *,
-        text: str,
         url: Optional[str] = None,
         callback_data: Optional[str] = None,
     ):
@@ -103,6 +124,43 @@ class RichMessageButton(Object):
         self.text = text
         self.url = url
         self.callback_data = callback_data
+
+    def write(self, client=None) -> "raw.base.KeyboardButton":
+        from pyrogram import raw
+        if self.url:
+            return raw.types.KeyboardButtonUrl(text=self.text, url=self.url)
+        if self.callback_data:
+            return raw.types.KeyboardButtonCallback(
+                text=self.text,
+                data=self.callback_data.encode() if isinstance(self.callback_data, str) else self.callback_data
+            )
+        return raw.types.KeyboardButton(text=self.text)
+
+    @staticmethod
+    def _parse(client: "pyrogram.Client" = None, b: Any = None) -> Optional["RichMessageButton"]:
+        if not b:
+            return None
+        if isinstance(b, RichMessageButton):
+            return b
+        from pyrogram import raw
+        if isinstance(b, raw.types.KeyboardButtonUrl):
+            return RichMessageButton(text=b.text, url=b.url)
+        if isinstance(b, raw.types.KeyboardButtonCallback):
+            data_str = b.data.decode(errors="ignore") if isinstance(b.data, bytes) else str(b.data)
+            return RichMessageButton(text=b.text, callback_data=data_str)
+        if isinstance(b, raw.types.KeyboardButton):
+            return RichMessageButton(text=b.text)
+        if isinstance(b, dict):
+            return RichMessageButton(
+                text=b.get("text", ""),
+                url=b.get("url"),
+                callback_data=b.get("callback_data"),
+            )
+        return RichMessageButton(text=str(getattr(b, "text", b)))
+
+    @staticmethod
+    def read(b: Any, client: "pyrogram.Client" = None) -> Optional["RichMessageButton"]:
+        return RichMessageButton._parse(client, b)
 
 
 class InputRichMessageMedia(Object):
@@ -170,6 +228,72 @@ class InputRichMessage(Object):
         self.skip_entity_detection = skip_entity_detection
         self.blocks = blocks
         self.media = media
+
+    async def write(self, client: "pyrogram.Client" = None) -> "raw.base.InputRichMessage":
+        from pyrogram import raw
+        import asyncio
+        if self.markdown:
+            return raw.types.InputRichMessageMarkdown(
+                markdown=self.markdown,
+                rtl=self.is_rtl,
+                noautolink=self.skip_entity_detection,
+            )
+        if self.html:
+            return raw.types.InputRichMessageHTML(
+                html=self.html,
+                rtl=self.is_rtl,
+                noautolink=self.skip_entity_detection,
+            )
+        raw_blocks = []
+        if self.blocks:
+            for b in self.blocks:
+                if hasattr(b, "write"):
+                    res = b.write(client)
+                    if asyncio.iscoroutine(res):
+                        res = await res
+                    raw_blocks.append(res)
+                else:
+                    raw_blocks.append(b)
+        return raw.types.InputRichMessage(
+            blocks=raw_blocks,
+            rtl=self.is_rtl,
+            noautolink=self.skip_entity_detection,
+            photos=[],
+            documents=[],
+            users=[],
+        )
+
+    @staticmethod
+    def read(b: Any, client: "pyrogram.Client" = None) -> "InputRichMessage":
+        from pyrogram import raw, types
+        if isinstance(b, raw.types.InputRichMessageMarkdown):
+            return InputRichMessage(
+                markdown=b.markdown,
+                is_rtl=b.rtl,
+                skip_entity_detection=b.noautolink,
+            )
+        if isinstance(b, raw.types.InputRichMessageHTML):
+            return InputRichMessage(
+                html=b.html,
+                is_rtl=b.rtl,
+                skip_entity_detection=b.noautolink,
+            )
+        if isinstance(b, raw.types.InputRichMessage):
+            parsed_blocks = [types.RichBlock._parse(client, blk) for blk in b.blocks]
+            return InputRichMessage(
+                blocks=parsed_blocks,
+                is_rtl=b.rtl,
+                skip_entity_detection=b.noautolink,
+            )
+        if isinstance(b, dict):
+            return InputRichMessage(
+                html=b.get("html"),
+                markdown=b.get("markdown"),
+                is_rtl=b.get("is_rtl"),
+                skip_entity_detection=b.get("skip_entity_detection"),
+                blocks=b.get("blocks"),
+            )
+        return InputRichMessage(markdown=str(b))
 
 
 InputRichMessageContent = InputRichMessage

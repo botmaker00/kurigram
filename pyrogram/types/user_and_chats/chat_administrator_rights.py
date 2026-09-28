@@ -164,4 +164,30 @@ class ChatAdministratorRights(Object):
             can_send_welcome_messages=getattr(admin_rights, "send_welcome_messages", False) or False,
         )
 
+    def write(self, client=None) -> "raw.base.ChatAdminRights":
+        return raw.types.ChatAdminRights(
+            anonymous=self.is_anonymous,
+            change_info=self.can_change_info,
+            post_messages=self.can_post_messages,
+            post_stories=self.can_post_stories,
+            edit_messages=self.can_edit_messages,
+            edit_stories=self.can_edit_stories,
+            delete_messages=self.can_delete_messages,
+            delete_stories=self.can_delete_stories,
+            ban_users=self.can_restrict_members,
+            invite_users=self.can_invite_users,
+            pin_messages=self.can_pin_messages,
+            add_admins=self.can_promote_members,
+            manage_call=self.can_manage_video_chats,
+            manage_topics=self.can_manage_topics,
+            manage_direct_messages=self.can_manage_direct_messages,
+            manage_ranks=self.can_manage_tags,
+            send_welcome_messages=self.can_send_welcome_messages,
+            other=self.can_manage_chat,
+        )
+
+    @staticmethod
+    def read(admin_rights: "raw.base.ChatAdminRights") -> "ChatAdministratorRights":
+        return ChatAdministratorRights._parse(admin_rights)
+
 ChatPrivileges = ChatAdministratorRights

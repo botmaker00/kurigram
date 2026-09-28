@@ -16,7 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Optional
+from typing import Any, Optional
 
 import pyrogram
 from ..object import Object
@@ -37,10 +37,30 @@ class Community(Object):
         self,
         *,
         client: "pyrogram.Client" = None,
-        id: int,
-        name: str,
+        id: int = 0,
+        name: Optional[str] = None,
+        title: Optional[str] = None,
     ):
         super().__init__(client)
 
         self.id = id
-        self.name = name
+        self.name = name or title or ""
+        self.title = self.name
+
+    @staticmethod
+    def _parse(
+        client: "pyrogram.Client" = None,
+        community: Optional[Any] = None,
+    ) -> Optional["Community"]:
+        if community is None:
+            return None
+        if isinstance(community, Community):
+            return community
+        c_id = getattr(community, "id", None) or (community.get("id") if isinstance(community, dict) else 0)
+        c_name = getattr(community, "name", None) or getattr(community, "title", None) or (community.get("name") or community.get("title") if isinstance(community, dict) else "")
+        return Community(client=client, id=int(c_id), name=str(c_name))
+        return None
+
+    @staticmethod
+    def read(b: Any, client: "pyrogram.Client" = None) -> "Community":
+        return Community._parse(client, b)

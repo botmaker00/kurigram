@@ -299,6 +299,12 @@ class SendMessage:
                         rtl=is_rtl,
                         noautolink=skip_entity_detection
                     )
+            elif hasattr(rich_message, "write"):
+                rich_message = await rich_message.write(self)
+                if is_rtl is not None:
+                    rich_message.rtl = is_rtl
+                if skip_entity_detection is not None:
+                    rich_message.noautolink = skip_entity_detection
             else:
                 if is_rtl is not None:
                     rich_message.rtl = is_rtl

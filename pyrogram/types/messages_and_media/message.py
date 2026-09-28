@@ -1091,6 +1091,10 @@ class Message(Object, Update):
         direct_message_price_changed = None
         checklist_tasks_done = None
         checklist_tasks_added = None
+        unique_gift_info = None
+        community_chat_added = None
+        community_chat_removed = None
+        community_chat_joined = None
 
         service_type = enums.MessageServiceType.UNSUPPORTED
 
@@ -1313,10 +1317,16 @@ class Message(Object, Update):
         elif isinstance(action, raw.types.MessageActionSetMessagesTTL):
             service_type = enums.MessageServiceType.SET_MESSAGE_AUTO_DELETE_TIME
             set_message_auto_delete_time = action.period
-        elif isinstance(action, (raw.types.MessageActionStarGift, raw.types.MessageActionStarGiftUnique)):
+        elif isinstance(action, raw.types.MessageActionStarGiftUnique):
+            service_type = enums.MessageServiceType.UNIQUE_GIFT
+            is_prepaid_upgrade = action.prepaid_upgrade
+            is_from_auction = getattr(action, "auction_acquired", None)
+            gift = await types.Gift._parse(client, action, users=users, chats=chats)
+            unique_gift_info = types.UniqueGiftInfo._parse(client, action)
+        elif isinstance(action, raw.types.MessageActionStarGift):
             service_type = enums.MessageServiceType.GIFT
-            is_prepaid_upgrade=action.prepaid_upgrade
-            is_from_auction=getattr(action, "auction_acquired", None)
+            is_prepaid_upgrade = action.prepaid_upgrade
+            is_from_auction = getattr(action, "auction_acquired", None)
             gift = await types.Gift._parse(client, action, users=users, chats=chats)
         elif isinstance(action, raw.types.MessageActionSuggestProfilePhoto):
             service_type = enums.MessageServiceType.SUGGEST_PROFILE_PHOTO
@@ -1438,6 +1448,10 @@ class Message(Object, Update):
             direct_message_price_changed=direct_message_price_changed,
             checklist_tasks_done=checklist_tasks_done,
             checklist_tasks_added=checklist_tasks_added,
+            community_chat_added=community_chat_added,
+            community_chat_removed=community_chat_removed,
+            community_chat_joined=community_chat_joined,
+            unique_gift_info=unique_gift_info,
             reactions=types.MessageReactions._parse(client, message.reactions, users, chats),
             business_connection_id=business_connection_id,
             raw=message,

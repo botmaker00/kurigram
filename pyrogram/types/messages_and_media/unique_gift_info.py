@@ -17,7 +17,7 @@
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import pyrogram
 from pyrogram import raw, types
@@ -95,3 +95,76 @@ class UniqueGiftInfo(Object):
         self.entities = entities
         self.is_private = is_private
         self.last_resale_star_count = last_resale_star_count
+
+    @staticmethod
+    def _parse(
+        client: "pyrogram.Client" = None,
+        action: Optional[Any] = None,
+    ) -> Optional["UniqueGiftInfo"]:
+        if not action:
+            return None
+        if isinstance(action, UniqueGiftInfo):
+            return action
+
+        if isinstance(action, raw.types.MessageActionStarGiftUnique):
+            origin = "transfer"
+            if action.upgrade:
+                origin = "upgrade"
+            elif action.from_offer:
+                origin = "offer"
+            elif action.resale_amount:
+                origin = "resale"
+            elif action.prepaid_upgrade:
+                origin = "gifted_upgrade"
+            elif action.transferred:
+                origin = "transfer"
+
+            last_resale_currency = None
+            last_resale_amount = None
+            if action.resale_amount:
+                last_resale_amount = getattr(action.resale_amount, "amount", None)
+                last_resale_currency = "XTR"
+
+            next_transfer_date = None
+            if action.can_transfer_at:
+                from pyrogram import utils
+                next_transfer_date = utils.timestamp_to_datetime(action.can_transfer_at)
+
+            owned_gift_id = str(action.saved_id) if action.saved_id is not None else None
+
+            gift_obj = getattr(action, "gift", None)
+            parsed_gift = types.Gift._parse(client, gift_obj) if hasattr(types.Gift, "_parse") else gift_obj
+
+            return UniqueGiftInfo(
+                client=client,
+                gift=parsed_gift,
+                origin=origin,
+                last_resale_currency=last_resale_currency,
+                last_resale_amount=last_resale_amount,
+                owned_gift_id=owned_gift_id,
+                transfer_star_count=action.transfer_stars,
+                next_transfer_date=next_transfer_date,
+                is_private=getattr(action.gift, "is_private", False) if hasattr(action, "gift") else False,
+                last_resale_star_count=last_resale_amount,
+            )
+
+        if isinstance(action, dict):
+            return UniqueGiftInfo(
+                client=client,
+                gift=action.get("gift"),
+                origin=action.get("origin"),
+                last_resale_currency=action.get("last_resale_currency"),
+                last_resale_amount=action.get("last_resale_amount"),
+                owned_gift_id=action.get("owned_gift_id"),
+                transfer_star_count=action.get("transfer_star_count"),
+                next_transfer_date=action.get("next_transfer_date"),
+                text=action.get("text"),
+                entities=action.get("entities"),
+                is_private=action.get("is_private"),
+                last_resale_star_count=action.get("last_resale_star_count"),
+            )
+        return None
+
+    @staticmethod
+    def read(b: Any, client: "pyrogram.Client" = None) -> "UniqueGiftInfo":
+        return UniqueGiftInfo._parse(client, b)

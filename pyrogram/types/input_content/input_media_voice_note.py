@@ -58,14 +58,17 @@ class InputMediaVoiceNote(InputMedia):
 
     def __init__(
         self,
-        media: Union[str, BinaryIO],
+        media: Optional[Union[str, BinaryIO]] = None,
         caption: str = "",
         parse_mode: Optional["enums.ParseMode"] = None,
         caption_entities: Optional[List[MessageEntity]] = None,
         duration: int = 0,
+        voice_note: Optional[Union[str, BinaryIO]] = None,
     ):
+        media = media or voice_note
         super().__init__(media, caption, parse_mode, caption_entities)
 
+        self.voice_note = media
         self.duration = duration
 
     async def write(

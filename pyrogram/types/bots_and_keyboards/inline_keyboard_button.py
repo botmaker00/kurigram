@@ -240,17 +240,24 @@ class InlineKeyboardButton(Object):
         if isinstance(b, raw.types.KeyboardButton):
             return InlineKeyboardButton(
                 text=b.text,
+                disabled=True,
                 style=button_style,
                 icon_custom_emoji_id=icon_custom_emoji_id
             )
 
-    async def write(self, client: "pyrogram.Client"):
+    async def write(self, client: "pyrogram.Client" = None):
         style = raw.types.KeyboardButtonStyle(
             bg_primary=self.style == enums.ButtonStyle.PRIMARY,
             bg_danger=self.style == enums.ButtonStyle.DANGER,
             bg_success=self.style == enums.ButtonStyle.SUCCESS,
             icon=int(self.icon_custom_emoji_id) if self.icon_custom_emoji_id is not None else None
         ) if self.style != enums.ButtonStyle.DEFAULT or self.icon_custom_emoji_id is not None else None
+
+        if self.disabled:
+            return raw.types.KeyboardButton(
+                text=self.text,
+                style=style
+            )
 
         if self.callback_data is not None:
             # Telegram only wants bytes, but we are allowed to pass strings too, for convenience.
@@ -324,3 +331,8 @@ class InlineKeyboardButton(Object):
                 copy_text=self.copy_text,
                 style=style,
             )
+
+        return raw.types.KeyboardButton(
+            text=self.text,
+            style=style,
+        )

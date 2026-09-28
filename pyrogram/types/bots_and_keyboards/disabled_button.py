@@ -16,14 +16,29 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
+from typing import Optional
+import pyrogram
+from pyrogram import raw
 from ..object import Object
 
 
 class DisabledButton(Object):
-    """Describes a disabled button in an inline keyboard. Currently holds no information.
+    """Describes a disabled button in an inline keyboard.
 
     Source: https://core.telegram.org/bots/api#disabledbutton
+
+    Parameters:
+        text (``str``, *optional*):
+            Label text on the button.
     """
 
-    def __init__(self):
+    def __init__(self, text: str = ""):
         super().__init__()
+        self.text = text
+
+    async def write(self, client: "pyrogram.Client" = None) -> "raw.base.KeyboardButton":
+        return raw.types.KeyboardButton(text=self.text)
+
+    @staticmethod
+    def read(b: "raw.base.KeyboardButton") -> "DisabledButton":
+        return DisabledButton(text=getattr(b, "text", ""))
