@@ -186,3 +186,80 @@ async def test_roundtrip_rich_message():
     assert len(read_msg.blocks) == 2
     assert isinstance(read_msg.blocks[0], types.RichBlockParagraph)
     assert isinstance(read_msg.blocks[1], types.RichBlockButtons)
+
+
+@pytest.mark.asyncio
+async def test_roundtrip_input_rich_message_media():
+    # Test InputRichMessageMedia write & read
+    photo = raw.types.InputPhoto(id=12345, access_hash=67890, file_reference=b"ref")
+    media_item = types.InputRichMessageMedia(id="img_1", media=photo)
+    raw_file = await media_item.write()
+    assert isinstance(raw_file, raw.types.InputRichFilePhoto)
+    assert raw_file.id == "img_1"
+    assert raw_file.photo.id == 12345
+
+    read_media = types.InputRichMessageMedia.read(raw_file)
+    assert isinstance(read_media, types.InputRichMessageMedia)
+    assert read_media.id == "img_1"
+    assert read_media.media.id == 12345
+
+    # Test InputRichMessage with media write & read
+    doc = raw.types.InputDocument(id=54321, access_hash=9876, file_reference=b"doc_ref")
+    doc_media_item = types.InputRichMessageMedia(id="doc_1", media=doc)
+
+    rich_msg = types.InputRichMessage(
+        blocks=[types.InputRichBlockDivider()],
+        media=[media_item, doc_media_item],
+    )
+    raw_rich_msg = await rich_msg.write()
+    assert isinstance(raw_rich_msg, raw.types.InputRichMessage)
+    assert len(raw_rich_msg.photos) == 1
+    assert raw_rich_msg.photos[0].id == 12345
+    assert len(raw_rich_msg.documents) == 1
+    assert raw_rich_msg.documents[0].id == 54321
+
+    # Deserialization from raw.types.InputRichMessage preserves media
+    read_rich_msg = types.InputRichMessage.read(raw_rich_msg)
+    assert isinstance(read_rich_msg, types.InputRichMessage)
+    assert read_rich_msg.media is not None
+    assert len(read_rich_msg.media) == 2
+    assert read_rich_msg.media[0].id == "12345"
+    assert read_rich_msg.media[1].id == "54321"
+
+    # Markdown format with embedded files
+    md_msg = types.InputRichMessage(
+        markdown="Look at this [media](tg://photo?id=img_1)",
+        media=[media_item],
+    )
+    raw_md = await md_msg.write()
+    assert isinstance(raw_md, raw.types.InputRichMessageMarkdown)
+    assert raw_md.files is not None
+    assert len(raw_md.files) == 1
+    assert raw_md.files[0].id == "img_1"
+
+    read_md = types.InputRichMessage.read(raw_md)
+    assert read_md.media is not None
+    assert len(read_md.media) == 1
+    assert read_md.media[0].id == "img_1"
+
+
+@pytest.mark.asyncio
+async def test_roundtrip_rich_block_document():
+    # InputRichBlockDocument write to raw.types.PageBlockDocument
+    caption = types.RichBlockCaption(text=types.RichText("Annual Report 2026"))
+    input_doc_block = types.InputRichBlockDocument(
+        document=999888,
+        caption=caption,
+    )
+    raw_block = await input_doc_block.write()
+    assert isinstance(raw_block, raw.types.PageBlockDocument)
+    assert raw_block.document_id == 999888
+    assert raw_block.caption is not None
+
+    # Deserialization back to RichBlockDocument
+    parsed_block = types.RichBlock._parse(None, raw_block)
+    assert isinstance(parsed_block, types.RichBlockDocument)
+    assert parsed_block.document == 999888
+    assert parsed_block.caption is not None
+    assert parsed_block.caption.text.text == "Annual Report 2026"
+

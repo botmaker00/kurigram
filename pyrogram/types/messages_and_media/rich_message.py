@@ -186,6 +186,46 @@ class InputRichMessageMedia(Object):
         self.id = id
         self.media = media
 
+    async def write(self, client: "pyrogram.Client" = None) -> "raw.base.InputRichFile":
+        from pyrogram import raw
+        import asyncio
+        m = self.media
+        if hasattr(m, "write") and not isinstance(m, (raw.core.TLObject, raw.base.InputPhoto, raw.base.InputDocument, raw.base.InputRichFile)):
+            res = m.write(client)
+            if asyncio.iscoroutine(res):
+                res = await res
+            m = res
+        if isinstance(m, raw.base.InputPhoto):
+            return raw.types.InputRichFilePhoto(id=self.id, photo=m)
+        if isinstance(m, raw.base.InputDocument):
+            return raw.types.InputRichFileDocument(id=self.id, document=m)
+        if isinstance(m, raw.base.InputRichFile):
+            return m
+        if hasattr(m, "file_id") or "photo" in type(m).__name__.lower():
+            return raw.types.InputRichFilePhoto(
+                id=self.id,
+                photo=raw.types.InputPhoto(id=getattr(m, "id", 0) or 0, access_hash=0, file_reference=b"")
+            )
+        return raw.types.InputRichFileDocument(
+            id=self.id,
+            document=raw.types.InputDocument(id=getattr(m, "id", 0) or 0, access_hash=0, file_reference=b"")
+        )
+
+    @staticmethod
+    def read(b: Any, client: "pyrogram.Client" = None) -> Optional["InputRichMessageMedia"]:
+        if b is None:
+            return None
+        if isinstance(b, InputRichMessageMedia):
+            return b
+        from pyrogram import raw
+        if isinstance(b, raw.types.InputRichFilePhoto):
+            return InputRichMessageMedia(id=b.id, media=b.photo)
+        if isinstance(b, raw.types.InputRichFileDocument):
+            return InputRichMessageMedia(id=b.id, media=b.document)
+        if isinstance(b, dict):
+            return InputRichMessageMedia(id=b.get("id", ""), media=b.get("media"))
+        return InputRichMessageMedia(id=str(getattr(b, "id", "")), media=b)
+
 
 class InputRichMessage(Object):
     """Describes an outgoing rich message.
@@ -232,17 +272,79 @@ class InputRichMessage(Object):
     async def write(self, client: "pyrogram.Client" = None) -> "raw.base.InputRichMessage":
         from pyrogram import raw
         import asyncio
+
+        raw_photos = []
+        raw_docs = []
+        raw_files = []
+        if self.media:
+            for item in self.media:
+                if isinstance(item, InputRichMessageMedia):
+                    m_val = item.media
+                    m_id = item.id
+                    if hasattr(m_val, "write") and not isinstance(m_val, (raw.core.TLObject, raw.base.InputPhoto, raw.base.InputDocument, raw.base.InputRichFile)):
+                        res = m_val.write(client)
+                        if asyncio.iscoroutine(res):
+                            res = await res
+                        m_val = res
+                    if isinstance(m_val, raw.base.InputPhoto):
+                        raw_photos.append(m_val)
+                        raw_files.append(raw.types.InputRichFilePhoto(id=m_id, photo=m_val))
+                    elif isinstance(m_val, raw.base.InputDocument):
+                        raw_docs.append(m_val)
+                        raw_files.append(raw.types.InputRichFileDocument(id=m_id, document=m_val))
+                    elif isinstance(m_val, raw.types.InputRichFilePhoto):
+                        raw_files.append(m_val)
+                        raw_photos.append(m_val.photo)
+                    elif isinstance(m_val, raw.types.InputRichFileDocument):
+                        raw_files.append(m_val)
+                        raw_docs.append(m_val.document)
+                    else:
+                        if hasattr(m_val, "file_id") or "photo" in type(m_val).__name__.lower():
+                            p_obj = raw.types.InputPhoto(id=getattr(m_val, "id", 0) or 0, access_hash=0, file_reference=b"")
+                            raw_photos.append(p_obj)
+                            raw_files.append(raw.types.InputRichFilePhoto(id=m_id, photo=p_obj))
+                        else:
+                            d_obj = raw.types.InputDocument(id=getattr(m_val, "id", 0) or 0, access_hash=0, file_reference=b"")
+                            raw_docs.append(d_obj)
+                            raw_files.append(raw.types.InputRichFileDocument(id=m_id, document=d_obj))
+                elif isinstance(item, raw.types.InputRichFilePhoto):
+                    raw_files.append(item)
+                    raw_photos.append(item.photo)
+                elif isinstance(item, raw.types.InputRichFileDocument):
+                    raw_files.append(item)
+                    raw_docs.append(item.document)
+                elif isinstance(item, raw.base.InputPhoto):
+                    raw_photos.append(item)
+                elif isinstance(item, raw.base.InputDocument):
+                    raw_docs.append(item)
+                elif hasattr(item, "write"):
+                    res = item.write(client)
+                    if asyncio.iscoroutine(res):
+                        res = await res
+                    if isinstance(res, raw.types.InputRichFilePhoto):
+                        raw_files.append(res)
+                        raw_photos.append(res.photo)
+                    elif isinstance(res, raw.types.InputRichFileDocument):
+                        raw_files.append(res)
+                        raw_docs.append(res.document)
+                    elif isinstance(res, raw.base.InputPhoto):
+                        raw_photos.append(res)
+                    elif isinstance(res, raw.base.InputDocument):
+                        raw_docs.append(res)
+
         if self.markdown:
             return raw.types.InputRichMessageMarkdown(
                 markdown=self.markdown,
                 rtl=self.is_rtl,
                 noautolink=self.skip_entity_detection,
+                files=raw_files if raw_files else None,
             )
         if self.html:
             return raw.types.InputRichMessageHTML(
                 html=self.html,
                 rtl=self.is_rtl,
                 noautolink=self.skip_entity_detection,
+                files=raw_files if raw_files else None,
             )
         raw_blocks = []
         if self.blocks:
@@ -258,8 +360,8 @@ class InputRichMessage(Object):
             blocks=raw_blocks,
             rtl=self.is_rtl,
             noautolink=self.skip_entity_detection,
-            photos=[],
-            documents=[],
+            photos=raw_photos,
+            documents=raw_docs,
             users=[],
         )
 
@@ -267,31 +369,48 @@ class InputRichMessage(Object):
     def read(b: Any, client: "pyrogram.Client" = None) -> "InputRichMessage":
         from pyrogram import raw, types
         if isinstance(b, raw.types.InputRichMessageMarkdown):
+            media_items = []
+            for f in (getattr(b, "files", []) or []):
+                media_items.append(InputRichMessageMedia.read(f, client))
             return InputRichMessage(
                 markdown=b.markdown,
                 is_rtl=b.rtl,
                 skip_entity_detection=b.noautolink,
+                media=media_items if media_items else None,
             )
         if isinstance(b, raw.types.InputRichMessageHTML):
+            media_items = []
+            for f in (getattr(b, "files", []) or []):
+                media_items.append(InputRichMessageMedia.read(f, client))
             return InputRichMessage(
                 html=b.html,
                 is_rtl=b.rtl,
                 skip_entity_detection=b.noautolink,
+                media=media_items if media_items else None,
             )
         if isinstance(b, raw.types.InputRichMessage):
             parsed_blocks = [types.RichBlock._parse(client, blk) for blk in b.blocks]
+            media_items = []
+            for p in (getattr(b, "photos", []) or []):
+                media_items.append(InputRichMessageMedia(id=str(getattr(p, "id", "")), media=p))
+            for d in (getattr(b, "documents", []) or []):
+                media_items.append(InputRichMessageMedia(id=str(getattr(d, "id", "")), media=d))
             return InputRichMessage(
                 blocks=parsed_blocks,
+                media=media_items if media_items else None,
                 is_rtl=b.rtl,
                 skip_entity_detection=b.noautolink,
             )
         if isinstance(b, dict):
+            media_val = b.get("media")
+            parsed_media = [InputRichMessageMedia.read(m, client) for m in media_val] if media_val else None
             return InputRichMessage(
                 html=b.get("html"),
                 markdown=b.get("markdown"),
                 is_rtl=b.get("is_rtl"),
                 skip_entity_detection=b.get("skip_entity_detection"),
                 blocks=b.get("blocks"),
+                media=parsed_media,
             )
         return InputRichMessage(markdown=str(b))
 

@@ -965,6 +965,7 @@ pageBlockCollage#65a0fa4d items:Vector<PageBlock> caption:PageCaption = PageBloc
 pageBlockSlideshow#31f9590 items:Vector<PageBlock> caption:PageCaption = PageBlock;
 pageBlockChannel#ef1751b5 channel:Chat = PageBlock;
 pageBlockAudio#804361ea audio_id:long caption:PageCaption = PageBlock;
+pageBlockDocument#93a21bc4 document_id:long caption:PageCaption = PageBlock;
 pageBlockKicker#1e148390 text:RichText = PageBlock;
 pageBlockTable#bf4dea82 flags:# bordered:flags.0?true striped:flags.1?true title:RichText rows:Vector<PageTableRow> = PageBlock;
 pageBlockOrderedList#1fd6f6c1 flags:# reversed:flags.2?true items:Vector<PageListOrderedItem> start:flags.0?int type:flags.1?string = PageBlock;

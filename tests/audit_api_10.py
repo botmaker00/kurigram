@@ -240,6 +240,15 @@ async def run_audit():
     raw_msg = await types.InputRichMessage(blocks=[types.InputRichBlockDivider()]).write()
     record_ser(isinstance(raw_msg, raw.types.InputRichMessage))
 
+    raw_media_msg = await types.InputRichMessage(
+        blocks=[types.InputRichBlockDivider()],
+        media=[types.InputRichMessageMedia(id="img", media=raw.types.InputPhoto(id=1, access_hash=2, file_reference=b""))],
+    ).write()
+    record_ser(isinstance(raw_media_msg, raw.types.InputRichMessage) and len(raw_media_msg.photos) == 1)
+
+    raw_doc_blk = await types.InputRichBlockDocument(document=123, caption=types.RichBlockCaption(text=types.RichText("doc"))).write()
+    record_ser(isinstance(raw_doc_blk, raw.types.PageBlockDocument) and raw_doc_blk.document_id == 123)
+
     # ==================== DESERIALIZATION (read / parse) ====================
     # 1. InlineKeyboardButton read disabled
     read_btn = types.InlineKeyboardButton.read(raw.types.KeyboardButton(text="B"))
@@ -307,6 +316,12 @@ async def run_audit():
 
     read_msg = types.RichMessage.read(raw_msg)
     record_deser(isinstance(read_msg, types.RichMessage) and len(read_msg.blocks) == 1)
+
+    read_media_msg = types.InputRichMessage.read(raw_media_msg)
+    record_deser(read_media_msg.media is not None and len(read_media_msg.media) == 1 and read_media_msg.media[0].id == "1")
+
+    read_doc_blk = types.RichBlock._parse(None, raw_doc_blk)
+    record_deser(isinstance(read_doc_blk, types.RichBlockDocument) and read_doc_blk.document == 123)
 
     # Print Report
     print("=" * 30 + " KURIGRAM BOT API AUDIT " + "=" * 30)

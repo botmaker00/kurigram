@@ -64,13 +64,14 @@ class Object:
             "raw"
         ]
 
+        keys = obj.__dict__ if hasattr(obj, "__dict__") else (getattr(obj, "__slots__", None) or [])
         filtered_attributes = {
             attr: ("*" * 9 if attr == "phone_number" else getattr(obj, attr))
             for attr in filter(
                 lambda x: not x.startswith("_") and x not in attributes_to_hide,
-                obj.__dict__,
+                keys,
             )
-            if getattr(obj, attr) is not None
+            if getattr(obj, attr, None) is not None
         }
 
         return {

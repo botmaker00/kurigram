@@ -505,6 +505,12 @@ class RichBlock(Object):
             cap = await _to_raw_caption(getattr(self, "caption", None))
             return raw.types.PageBlockAudio(audio_id=audio_id, caption=cap)
 
+        if isinstance(self, (RichBlockDocument, InputRichBlockDocument)):
+            d = getattr(self, "document", None)
+            doc_id = d if isinstance(d, int) else (getattr(d, "id", 0) if d else 0)
+            cap = await _to_raw_caption(getattr(self, "caption", None))
+            return raw.types.PageBlockDocument(document_id=doc_id, caption=cap, document=d)
+
         if isinstance(self, (RichBlockVoiceNote, InputRichBlockVoiceNote)):
             vn = getattr(self, "voice_note", None)
             vn_id = vn if isinstance(vn, int) else (getattr(vn, "id", 0) if vn else 0)
@@ -674,6 +680,12 @@ class RichBlock(Object):
             return RichBlockVideo(client=client, video=getattr(rich_block, "video_id", None))
         if isinstance(rich_block, raw.types.PageBlockAudio):
             return RichBlockAudio(client=client, audio=getattr(rich_block, "audio_id", None))
+        if isinstance(rich_block, raw.types.PageBlockDocument):
+            cap = None
+            if getattr(rich_block, "caption", None):
+                cap = types.RichBlockCaption._parse(client, rich_block.caption)
+            doc = getattr(rich_block, "document", None) or getattr(rich_block, "document_id", None)
+            return RichBlockDocument(client=client, document=doc, caption=cap)
         if isinstance(rich_block, (raw.types.PageBlockMap, getattr(raw.types, "InputPageBlockMap", object))):
             return RichBlockMap(client=client, zoom=getattr(rich_block, "zoom", None), width=getattr(rich_block, "w", None), height=getattr(rich_block, "h", None))
         if isinstance(rich_block, (raw.types.ReplyInlineMarkup, raw.types.ReplyKeyboardMarkup)):
