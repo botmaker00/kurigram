@@ -121,24 +121,11 @@ class EditMessageText:
 
         parse_mode = parse_mode or self.parse_mode
 
-        if parse_mode == enums.ParseMode.RICH_MARKDOWN:
-            rich_message = raw.types.InputRichMessageMarkdown(
-                markdown=text or "",
-                rtl=is_rtl,
-                noautolink=skip_entity_detection
-            )
-            text = None
-            parse_mode = None
-        elif parse_mode == enums.ParseMode.RICH_HTML:
-            rich_message = raw.types.InputRichMessageHTML(
-                html=text or "",
-                rtl=is_rtl,
-                noautolink=skip_entity_detection
-            )
-            text = None
-            parse_mode = None
-
-        if rich_message is not None:
+        text_entities = {}
+        if text is not None:
+            text_entities = await utils.parse_text_entities(self, text, parse_mode, entities)
+            rich_message = None
+        elif rich_message is not None:
             if isinstance(rich_message, str):
                 if parse_mode in (enums.ParseMode.HTML, enums.ParseMode.RICH_HTML):
                     rich_message = raw.types.InputRichMessageHTML(
@@ -171,10 +158,8 @@ class EditMessageText:
                     rich_message.rtl = is_rtl
                 if skip_entity_detection is not None and hasattr(rich_message, "noautolink"):
                     rich_message.noautolink = skip_entity_detection
-
-        text_entities = {}
-        if text is not None:
-            text_entities = await utils.parse_text_entities(self, text, parse_mode, entities)
+        else:
+            raise ValueError("Either text or rich_message must be specified")
 
         r = await self.invoke(
             raw.functions.messages.EditMessage(
