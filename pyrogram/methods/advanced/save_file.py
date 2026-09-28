@@ -30,7 +30,6 @@ from typing import Union, BinaryIO, Callable
 import pyrogram
 from pyrogram import StopTransmission
 from pyrogram import raw
-from pyrogram.session import Session
 
 log = logging.getLogger(__name__)
 
@@ -98,6 +97,8 @@ class SaveFile:
             if path is None:
                 return None
 
+            errors = []
+
             async def worker(session):
                 while True:
                     data = await queue.get()
@@ -107,8 +108,18 @@ class SaveFile:
 
                     try:
                         await session.invoke(data)
+                    except StopTransmission:
+                        raise
                     except Exception as e:
-                        log.exception(e)
+                        log.warning("Upload worker error: %s", e)
+                        errors.append(e)
+                        # Drain the queue so the main loop unblocks
+                        try:
+                            while True:
+                                queue.get_nowait()
+                        except asyncio.QueueEmpty:
+                            pass
+                        return
 
             part_size = 512 * 1024
 
@@ -148,8 +159,8 @@ class SaveFile:
 
             session = await self.get_session(dc_id, is_media=True)
 
+            queue = asyncio.Queue(workers_count)
             workers = [self.loop.create_task(worker(session)) for _ in range(workers_count)]
-            queue = asyncio.Queue(1)
 
             try:
                 fp.seek(part_size * file_part)
@@ -178,6 +189,9 @@ class SaveFile:
 
                     await queue.put(rpc)
 
+                    if errors:
+                        raise errors[0]
+
                     if is_missing_part:
                         return
 
@@ -203,6 +217,8 @@ class SaveFile:
             except Exception as e:
                 log.exception(e)
             else:
+                if errors:
+                    raise errors[0]
                 if is_big:
                     return raw.types.InputFileBig(
                         id=file_id,
