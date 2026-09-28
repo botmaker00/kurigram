@@ -233,6 +233,9 @@ async def parse_messages(
                     raw.types.UpdateNewChannelMessage,
                     raw.types.UpdateNewScheduledMessage,
                     raw.types.UpdateBotNewBusinessMessage,
+                    raw.types.UpdateEditMessage,
+                    raw.types.UpdateEditChannelMessage,
+                    raw.types.UpdateBotEditBusinessMessage,
                 )
             ):
                 parsed_messages.append(
