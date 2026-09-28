@@ -152,41 +152,61 @@ class SaveFile:
             worker_exception = None
             uploaded_bytes = 0
             progress_lock = asyncio.Lock()
+            stop_event = asyncio.Event()
 
             async def worker(sess):
                 nonlocal worker_exception, uploaded_bytes
-                while True:
-                    item = await queue.get()
+                try:
+                    while not stop_event.is_set():
+                        try:
+                            get_task = asyncio.create_task(queue.get())
+                            stop_task = asyncio.create_task(stop_event.wait())
+                            done, pending = await asyncio.wait([get_task, stop_task], return_when=asyncio.FIRST_COMPLETED)
+                            for t in pending:
+                                t.cancel()
+                            if stop_event.is_set():
+                                break
+                            item = get_task.result()
+                        except asyncio.CancelledError:
+                            break
 
-                    if item is None:
-                        return
+                        if item is None:
+                            break
 
-                    if worker_exception is not None:
-                        continue
+                        if stop_event.is_set() or worker_exception is not None:
+                            break
 
-                    chunk_len, rpc_data = item
+                        chunk_len, rpc_data = item
 
-                    try:
-                        await sess.invoke(rpc_data)
-                    except Exception as e:
-                        if worker_exception is None:
-                            worker_exception = e
-                        log.exception(e)
-                    else:
-                        if progress:
-                            async with progress_lock:
-                                uploaded_bytes += chunk_len
-                                func = functools.partial(
-                                    progress,
-                                    min(uploaded_bytes, file_size),
-                                    file_size,
-                                    *progress_args
-                                )
+                        try:
+                            await sess.invoke(rpc_data)
+                        except Exception as e:
+                            if worker_exception is None:
+                                worker_exception = e
+                            stop_event.set()
+                            log.exception(e)
+                            break
+                        else:
+                            if progress:
+                                async with progress_lock:
+                                    uploaded_bytes += chunk_len
+                                    func = functools.partial(
+                                        progress,
+                                        min(uploaded_bytes, file_size),
+                                        file_size,
+                                        *progress_args
+                                    )
 
-                                if inspect.iscoroutinefunction(progress):
-                                    await func()
-                                else:
-                                    await self.loop.run_in_executor(self.executor, func)
+                                    if inspect.iscoroutinefunction(progress):
+                                        await func()
+                                    else:
+                                        await self.loop.run_in_executor(self.executor, func)
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    if worker_exception is None:
+                        worker_exception = e
+                    stop_event.set()
 
             workers = [
                 self.loop.create_task(worker(sessions[i % num_sessions]))
@@ -197,8 +217,8 @@ class SaveFile:
                 fp.seek(part_size * file_part)
 
                 while True:
-                    if worker_exception is not None:
-                        raise worker_exception
+                    if stop_event.is_set() or worker_exception is not None:
+                        raise worker_exception or RuntimeError("File upload stopped unexpectedly")
 
                     chunk = fp.read(part_size)
 
@@ -221,23 +241,35 @@ class SaveFile:
                             bytes=chunk
                         )
 
-                    await queue.put((len(chunk), rpc))
+                    put_task = asyncio.create_task(queue.put((len(chunk), rpc)))
+                    stop_task = asyncio.create_task(stop_event.wait())
+                    done, pending = await asyncio.wait([put_task, stop_task], return_when=asyncio.FIRST_COMPLETED)
+                    for t in pending:
+                        t.cancel()
+
+                    if stop_event.is_set() or worker_exception is not None:
+                        raise worker_exception or RuntimeError("File upload stopped unexpectedly")
 
                     if is_missing_part:
-                        return
+                        break
 
                     if not is_big and not is_missing_part:
                         md5_sum.update(chunk)
 
                     file_part += 1
             except StopTransmission:
+                stop_event.set()
                 raise
             except Exception as e:
+                stop_event.set()
                 log.exception(e)
                 raise
             else:
                 for _ in workers:
-                    await queue.put(None)
+                    try:
+                        queue.put_nowait(None)
+                    except (asyncio.QueueFull, Exception):
+                        pass
 
                 await asyncio.gather(*workers)
 
@@ -258,10 +290,24 @@ class SaveFile:
                         md5_checksum=md5_sum
                     )
             finally:
-                for _ in workers:
-                    await queue.put(None)
+                stop_event.set()
 
-                await asyncio.gather(*workers, return_exceptions=True)
+                for w in workers:
+                    if not w.done():
+                        w.cancel()
+
+                while not queue.empty():
+                    try:
+                        queue.get_nowait()
+                    except (asyncio.QueueEmpty, ValueError):
+                        break
+
+                if workers:
+                    await asyncio.gather(*workers, return_exceptions=True)
 
                 if isinstance(path, (str, PurePath, os.PathLike)):
-                    fp.close()
+                    try:
+                        fp.close()
+                    except Exception:
+                        pass
+

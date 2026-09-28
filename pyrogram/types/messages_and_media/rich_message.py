@@ -195,20 +195,33 @@ class InputRichMessageMedia(Object):
             if asyncio.iscoroutine(res):
                 res = await res
             m = res
-        if isinstance(m, raw.base.InputPhoto):
-            return raw.types.InputRichFilePhoto(id=self.id, photo=m)
+        
+        clean_id = self.id.split("?id=", 1)[-1] if (isinstance(self.id, str) and "?id=" in self.id) else self.id
+        
         if isinstance(m, raw.base.InputDocument):
-            return raw.types.InputRichFileDocument(id=self.id, document=m)
+            return raw.types.InputRichFileDocument(id=clean_id, document=m)
+        if isinstance(m, raw.base.InputPhoto):
+            return raw.types.InputRichFilePhoto(id=clean_id, photo=m)
         if isinstance(m, raw.base.InputRichFile):
             return m
-        if hasattr(m, "file_id") or "photo" in type(m).__name__.lower():
-            return raw.types.InputRichFilePhoto(
-                id=self.id,
-                photo=raw.types.InputPhoto(id=getattr(m, "id", 0) or 0, access_hash=0, file_reference=b"")
+
+        is_doc = (
+            (isinstance(self.id, str) and (self.id.startswith("tg://document") or self.id.startswith("doc")))
+            or "document" in type(m).__name__.lower()
+            or "audio" in type(m).__name__.lower()
+            or "video" in type(m).__name__.lower()
+            or "voice" in type(m).__name__.lower()
+            or "file" in type(m).__name__.lower()
+            or hasattr(m, "mime_type")
+        )
+        if is_doc:
+            return raw.types.InputRichFileDocument(
+                id=clean_id,
+                document=raw.types.InputDocument(id=getattr(m, "id", 0) or 0, access_hash=0, file_reference=b"")
             )
-        return raw.types.InputRichFileDocument(
-            id=self.id,
-            document=raw.types.InputDocument(id=getattr(m, "id", 0) or 0, access_hash=0, file_reference=b"")
+        return raw.types.InputRichFilePhoto(
+            id=clean_id,
+            photo=raw.types.InputPhoto(id=getattr(m, "id", 0) or 0, access_hash=0, file_reference=b"")
         )
 
     @staticmethod
@@ -286,12 +299,13 @@ class InputRichMessage(Object):
                         if asyncio.iscoroutine(res):
                             res = await res
                         m_val = res
-                    if isinstance(m_val, raw.base.InputPhoto):
-                        raw_photos.append(m_val)
-                        raw_files.append(raw.types.InputRichFilePhoto(id=m_id, photo=m_val))
-                    elif isinstance(m_val, raw.base.InputDocument):
+                    clean_id = m_id.split("?id=", 1)[-1] if (isinstance(m_id, str) and "?id=" in m_id) else m_id
+                    if isinstance(m_val, raw.base.InputDocument):
                         raw_docs.append(m_val)
-                        raw_files.append(raw.types.InputRichFileDocument(id=m_id, document=m_val))
+                        raw_files.append(raw.types.InputRichFileDocument(id=clean_id, document=m_val))
+                    elif isinstance(m_val, raw.base.InputPhoto):
+                        raw_photos.append(m_val)
+                        raw_files.append(raw.types.InputRichFilePhoto(id=clean_id, photo=m_val))
                     elif isinstance(m_val, raw.types.InputRichFilePhoto):
                         raw_files.append(m_val)
                         raw_photos.append(m_val.photo)
@@ -299,14 +313,23 @@ class InputRichMessage(Object):
                         raw_files.append(m_val)
                         raw_docs.append(m_val.document)
                     else:
-                        if hasattr(m_val, "file_id") or "photo" in type(m_val).__name__.lower():
-                            p_obj = raw.types.InputPhoto(id=getattr(m_val, "id", 0) or 0, access_hash=0, file_reference=b"")
-                            raw_photos.append(p_obj)
-                            raw_files.append(raw.types.InputRichFilePhoto(id=m_id, photo=p_obj))
-                        else:
+                        is_doc = (
+                            (isinstance(m_id, str) and (m_id.startswith("tg://document") or m_id.startswith("doc")))
+                            or "document" in type(m_val).__name__.lower()
+                            or "audio" in type(m_val).__name__.lower()
+                            or "video" in type(m_val).__name__.lower()
+                            or "voice" in type(m_val).__name__.lower()
+                            or "file" in type(m_val).__name__.lower()
+                            or hasattr(m_val, "mime_type")
+                        )
+                        if is_doc:
                             d_obj = raw.types.InputDocument(id=getattr(m_val, "id", 0) or 0, access_hash=0, file_reference=b"")
                             raw_docs.append(d_obj)
-                            raw_files.append(raw.types.InputRichFileDocument(id=m_id, document=d_obj))
+                            raw_files.append(raw.types.InputRichFileDocument(id=clean_id, document=d_obj))
+                        else:
+                            p_obj = raw.types.InputPhoto(id=getattr(m_val, "id", 0) or 0, access_hash=0, file_reference=b"")
+                            raw_photos.append(p_obj)
+                            raw_files.append(raw.types.InputRichFilePhoto(id=clean_id, photo=p_obj))
                 elif isinstance(item, raw.types.InputRichFilePhoto):
                     raw_files.append(item)
                     raw_photos.append(item.photo)

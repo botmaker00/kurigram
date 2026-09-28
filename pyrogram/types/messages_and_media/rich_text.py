@@ -172,7 +172,12 @@ class RichText(Object):
             if t_type in ("reference_link", "rich_text_reference_link"):
                 return RichTextReferenceLink(text=text_val, reference_index=rich_text.get("reference_index"))
             if t_type in ("button", "rich_text_button"):
-                return RichTextButton(text=text_val, button=rich_text.get("button"))
+                return RichTextButton(
+                    text=text_val,
+                    button=rich_text.get("button"),
+                    url=rich_text.get("url"),
+                    callback_data=rich_text.get("callback_data"),
+                )
             return RichText(text=text_val, type=t_type)
 
         # Fallback for generic objects
@@ -416,14 +421,84 @@ class RichTextReferenceLink(RichText):
 
 
 class RichTextButton(RichText):
-    def __init__(self, text: str, button: Optional[Any] = None):
+    def __init__(
+        self,
+        text: str = "",
+        button: Optional[Any] = None,
+        *,
+        url: Optional[str] = None,
+        callback_data: Optional[Union[str, bytes]] = None,
+    ):
         super().__init__(text=text, type=enums.RichTextType.BUTTON)
         self.button = button
 
+        extracted_url = url
+        extracted_cb = callback_data
+
+        if extracted_url is None and button is not None:
+            extracted_url = getattr(button, "url", None) or (button.get("url") if isinstance(button, dict) else None)
+            if extracted_url is None and isinstance(button, str) and (button.startswith("http://") or button.startswith("https://") or button.startswith("tg://")):
+                extracted_url = button
+
+        if extracted_cb is None and button is not None:
+            extracted_cb = getattr(button, "callback_data", None) or (button.get("callback_data") if isinstance(button, dict) else None)
+            if extracted_cb is None and getattr(button, "data", None):
+                d = button.data
+                extracted_cb = d.decode("utf-8", errors="ignore") if isinstance(d, bytes) else str(d)
+
+        if isinstance(extracted_cb, bytes):
+            extracted_cb = extracted_cb.decode("utf-8", errors="ignore")
+
+        self.url = extracted_url
+        self.callback_data = extracted_cb
+
+        if self.button is None and (self.url is not None or self.callback_data is not None):
+            from .rich_message import RichMessageButton
+            self.button = RichMessageButton(text=self.text, url=self.url, callback_data=self.callback_data)
+
     def write(self, client: "pyrogram.Client" = None) -> "raw.base.RichText":
         from pyrogram import raw
-        url = getattr(self.button, "url", None) or ""
-        return raw.types.TextUrl(text=raw.types.TextPlain(text=self.text or ""), url=url, webpage_id=0)
+        target_url = self.url
+        if not target_url and self.callback_data:
+            target_url = f"tg://btn?data={self.callback_data}"
+        if not target_url and self.button is not None:
+            b_url = getattr(self.button, "url", None) or (self.button.get("url") if isinstance(self.button, dict) else None)
+            b_cb = getattr(self.button, "callback_data", None) or (self.button.get("callback_data") if isinstance(self.button, dict) else None)
+            if b_url:
+                target_url = b_url
+            elif b_cb:
+                cb_str = b_cb.decode("utf-8", errors="ignore") if isinstance(b_cb, bytes) else str(b_cb)
+                target_url = f"tg://btn?data={cb_str}"
+        return raw.types.TextUrl(text=raw.types.TextPlain(text=self.text or ""), url=target_url or "", webpage_id=0)
+
+    @staticmethod
+    def _parse(client: "pyrogram.Client" = None, rich_text: Any = None) -> Optional["RichTextButton"]:
+        if not rich_text:
+            return None
+        if isinstance(rich_text, RichTextButton):
+            return rich_text
+        from pyrogram import raw
+        if isinstance(rich_text, raw.types.TextUrl):
+            text_str = getattr(getattr(rich_text, "text", None), "text", str(rich_text.text))
+            u = rich_text.url or ""
+            if u.startswith("tg://btn?data="):
+                return RichTextButton(text=text_str, callback_data=u[len("tg://btn?data="):])
+            if u.startswith("tg://callback?data="):
+                return RichTextButton(text=text_str, callback_data=u[len("tg://callback?data="):])
+            return RichTextButton(text=text_str, url=u)
+        if isinstance(rich_text, dict):
+            return RichTextButton(
+                text=rich_text.get("text", ""),
+                button=rich_text.get("button"),
+                url=rich_text.get("url"),
+                callback_data=rich_text.get("callback_data")
+            )
+        return RichTextButton(text=str(getattr(rich_text, "text", rich_text)))
+
+    @staticmethod
+    def read(b: Any, client: "pyrogram.Client" = None) -> Optional["RichTextButton"]:
+        return RichTextButton._parse(client, b)
+
 
 
 # InputRichText aliases for Bot API compatibility

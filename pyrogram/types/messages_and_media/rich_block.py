@@ -81,8 +81,8 @@ class RichBlockTableCell(Object):
 
     def __init__(
         self,
-        *,
         text: Optional[Union["types.RichText", str]] = None,
+        *,
         align: Optional[str] = "left",
         valign: Optional[str] = "top",
         is_header: Optional[bool] = None,
@@ -421,14 +421,20 @@ class RichBlock(Object):
         if isinstance(self, (RichBlockThinking, InputRichBlockThinking)):
             return raw.types.PageBlockThinking(text=await _to_raw_text(getattr(self, "text", None)))
 
-        if isinstance(self, (RichBlockBlockQuotation, InputRichBlockBlockQuotation,
-                              RichBlockPullQuotation, InputRichBlockPullQuotation,
-                              RichBlockExpandableBlockQuotation, InputRichBlockExpandableBlockQuotation)):
+        if isinstance(self, (RichBlockExpandableBlockQuotation, InputRichBlockExpandableBlockQuotation)):
             t = await _to_raw_text(getattr(self, "text", None))
             credit_txt = await _to_raw_text(getattr(self, "credit", None))
-            if isinstance(self, (RichBlockPullQuotation, InputRichBlockPullQuotation)):
-                return raw.types.PageBlockPullquote(text=t, caption=credit_txt)
-            return raw.types.PageBlockBlockquote(text=t, caption=credit_txt)
+            return raw.types.PageBlockBlockquote(text=t, caption=credit_txt, collapsed=True, expandable=True)
+
+        if isinstance(self, (RichBlockPullQuotation, InputRichBlockPullQuotation)):
+            t = await _to_raw_text(getattr(self, "text", None))
+            credit_txt = await _to_raw_text(getattr(self, "credit", None))
+            return raw.types.PageBlockPullquote(text=t, caption=credit_txt)
+
+        if isinstance(self, (RichBlockBlockQuotation, InputRichBlockBlockQuotation)):
+            t = await _to_raw_text(getattr(self, "text", None))
+            credit_txt = await _to_raw_text(getattr(self, "credit", None))
+            return raw.types.PageBlockBlockquote(text=t, caption=credit_txt, collapsed=False, expandable=False)
 
         if isinstance(self, (RichBlockDetails, InputRichBlockDetails)):
             title_obj = getattr(self, "title", None) or getattr(self, "summary", None)
@@ -456,6 +462,7 @@ class RichBlock(Object):
                 rows=raw_rows,
                 bordered=getattr(self, "is_bordered", None),
                 striped=getattr(self, "is_striped", None),
+                compact=getattr(self, "is_compact", None),
             )
 
         if isinstance(self, (RichBlockList, InputRichBlockList)):
@@ -566,9 +573,13 @@ class RichBlock(Object):
             if b_type in ("list", "rich_block_list"):
                 return RichBlockList(client=client, items=rich_block.get("items", []))
             if b_type in ("block_quotation", "rich_block_block_quotation", "quote"):
-                return RichBlockBlockQuotation(client=client, text=parsed_text or types.RichText(""))
-            if b_type in ("expandable_block_quotation", "rich_block_expandable_block_quotation"):
-                return RichBlockExpandableBlockQuotation(client=client, text=parsed_text or types.RichText(""))
+                credit_val = rich_block.get("credit")
+                parsed_credit = types.RichText._parse(client, credit_val) if credit_val is not None else None
+                return RichBlockBlockQuotation(client=client, text=parsed_text or types.RichText(""), credit=parsed_credit)
+            if b_type in ("expandable_block_quotation", "rich_block_expandable_block_quotation", "expandable_blockquote", "rich_block_expandable_blockquote"):
+                credit_val = rich_block.get("credit")
+                parsed_credit = types.RichText._parse(client, credit_val) if credit_val is not None else None
+                return RichBlockExpandableBlockQuotation(client=client, text=parsed_text or types.RichText(""), credit=parsed_credit)
             if b_type in ("pull_quotation", "rich_block_pull_quotation"):
                 return RichBlockPullQuotation(client=client, text=parsed_text or types.RichText(""))
             if b_type in ("collage", "rich_block_collage"):
@@ -629,9 +640,15 @@ class RichBlock(Object):
         if isinstance(rich_block, raw.types.PageBlockThinking):
             return RichBlockThinking(client=client, text=types.RichText._parse(client, rich_block.text) or types.RichText(""))
         if isinstance(rich_block, raw.types.PageBlockBlockquote):
-            return RichBlockBlockQuotation(client=client, text=types.RichText._parse(client, rich_block.text) or types.RichText(""))
+            parsed_text = types.RichText._parse(client, rich_block.text) or types.RichText("")
+            credit_text = types.RichText._parse(client, getattr(rich_block, "caption", None))
+            if getattr(rich_block, "collapsed", False) or getattr(rich_block, "expandable", False):
+                return RichBlockExpandableBlockQuotation(client=client, text=parsed_text, credit=credit_text)
+            return RichBlockBlockQuotation(client=client, text=parsed_text, credit=credit_text)
         if isinstance(rich_block, raw.types.PageBlockBlockquoteBlocks):
-            return RichBlockBlockQuotation(client=client, text=types.RichText._parse(client, getattr(rich_block, "caption", "")) or types.RichText(""))
+            parsed_caption = types.RichText._parse(client, getattr(rich_block, "caption", "")) or types.RichText("")
+            sub_blocks = [RichBlock._parse(client, b) for b in (getattr(rich_block, "blocks", []) or [])]
+            return RichBlockBlockQuotation(client=client, text=parsed_caption, blocks=[b for b in sub_blocks if b])
         if isinstance(rich_block, raw.types.PageBlockPullquote):
             return RichBlockPullQuotation(client=client, text=types.RichText._parse(client, rich_block.text) or types.RichText(""))
         if isinstance(rich_block, raw.types.PageBlockCollage):
@@ -664,6 +681,7 @@ class RichBlock(Object):
                 cells=table_cells,
                 is_bordered=getattr(rich_block, "bordered", None),
                 is_striped=getattr(rich_block, "striped", None),
+                is_compact=getattr(rich_block, "compact", getattr(rich_block, "is_compact", None)),
             )
         if isinstance(rich_block, raw.types.PageBlockDetails):
             sub_blocks = [RichBlock._parse(client, b) for b in (rich_block.blocks or [])]
