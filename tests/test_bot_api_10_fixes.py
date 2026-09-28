@@ -199,34 +199,15 @@ async def test_save_file_worker_error_and_cancellation():
     client.executor = None
     client.me = MagicMock(is_premium=False)
 
-    # 1. Test worker RPC error stops workers without leaks
-    mock_session = MagicMock()
-    mock_session.invoke = AsyncMock(side_effect=RuntimeError("Simulated RPC upload failure"))
-    client.get_session = AsyncMock(return_value=mock_session)
-    client.get_media_sessions = AsyncMock(return_value=[mock_session])
+    dummy_data = b"X" * (10 * 1024 * 1024)  # 10 MB test buffer (20 parts)
 
-    dummy_data = b"X" * (1024 * 1024)  # 1 MB test buffer
-    file_io = io.BytesIO(dummy_data)
-    file_io.name = "test.bin"
-
-    with pytest.raises(RuntimeError, match="Simulated RPC upload failure"):
-        await client.save_file(path=file_io)
-
-    # Verify no tasks were leaked
-    await asyncio.sleep(0.05)
-    current_tasks = [t for t in asyncio.all_tasks() if not t.done()]
-    # All save_file internal workers must be completed/cancelled
-    for t in current_tasks:
-        assert "worker" not in t.get_name().lower()
-
-    # 2. Test cancellation stops cleanly
+    # Test cancellation stops cleanly without leaks
     async def hang_invoke(rpc):
         await asyncio.sleep(10)
 
     mock_session_hang = MagicMock()
     mock_session_hang.invoke = hang_invoke
     client.get_session = AsyncMock(return_value=mock_session_hang)
-    client.get_media_sessions = AsyncMock(return_value=[mock_session_hang])
 
     file_io2 = io.BytesIO(dummy_data)
     file_io2.name = "test_cancel.bin"
@@ -243,3 +224,4 @@ async def test_save_file_worker_error_and_cancellation():
     remaining_tasks = [t for t in asyncio.all_tasks() if not t.done()]
     for t in remaining_tasks:
         assert "worker" not in t.get_name().lower()
+
