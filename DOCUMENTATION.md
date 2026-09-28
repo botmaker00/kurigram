@@ -882,7 +882,7 @@ await app.send_rich_message(chat_id, rich_msg)
 ```
 
 ### Handling Rich Button Callback Queries:
-Jab user kisi `RichMessageButton(callback_data=...)` par click karta hai, Telegram standard `UpdateBotCallbackQuery` bhejta hai, jise Kurigram standard `on_callback_query` decorator se handle karta hai:
+When a user clicks a `RichMessageButton` configured with `callback_data`, Telegram dispatches a standard `UpdateBotCallbackQuery` update. Kurigram captures this seamlessly via the `@app.on_callback_query` handler decorator:
 
 ```python
 from pyrogram import Client, filters, types
