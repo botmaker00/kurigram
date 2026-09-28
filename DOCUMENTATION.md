@@ -904,7 +904,9 @@ async def handle_status(client: Client, query: types.CallbackQuery):
 ### MTProto Serialization Pipeline:
 - `InputRichBlockButtons` serializes directly to MTProto `raw.types.ReplyInlineMarkup(rows=[raw.types.KeyboardButtonRow(...)])`.
 - Individual `RichMessageButton` objects serialize to `raw.types.KeyboardButtonUrl`, `raw.types.KeyboardButtonCallback`, or `raw.types.KeyboardButton`.
-- When receiving updates, `RichBlock.read()` deserializes raw keyboard markups back into `RichBlockButtons`.
+- `RichTextButton` serializes to `raw.types.TextUrl` supporting both web URLs and internal `tg://btn?data=` callback queries.
+- `InputRichBlockTable` encodes the `compact` display flag as bit 2 in the 32-bit `flags` bitmask of `PageBlockTable` without altering packet size.
+- **Architectural Note on Expandable Blockquotes**: For guaranteed server-side expandable blockquote rendering across all Telegram client versions, use `InputRichMessageHTML(html="<blockquote expandable>...</blockquote>")` or `InputRichMessageMarkdown(markdown="**> ... ||")`. In raw block mode, `InputRichBlockExpandableBlockQuotation` outputs a wire-safe standard `PageBlockBlockquote` payload (`ID + text + caption`) to preserve 100% protocol compatibility without malforming MTProto packets.
 
 ---
 ## 35. Ephemeral Messages
