@@ -795,41 +795,96 @@ Kurigram implements a complete end-to-end pipeline for **Rich Messages** (Bot AP
 ### Core Types:
 - `types.InputRichMessage`: Top-level outgoing rich container supporting `blocks`, `media`, `markdown`, or `html`.
 - `types.InputRichMessageMedia`: Embedded media items linkable via `tg://photo?id=` or `tg://video?id=`.
+- `types.RichText`: Formatted text nodes (`RichTextBold`, `RichTextItalic`, `RichTextCode`, `RichTextSpoiler`, etc.).
 - `types.RichBlock`: Layout blocks:
-  - `InputRichBlockParagraph`
-  - `InputRichBlockSectionHeading`
-  - `InputRichBlockTable` (supports `is_compact`, bordered, and striped formatting)
-  - `InputRichBlockBlockQuotation`
-  - `InputRichBlockExpandableBlockQuotation`
-  - `InputRichBlockDocument` (embedded documents with captions)
-  - `InputRichBlockButtons` (matrices of rich inline buttons)
+  - `InputRichBlockParagraph`: Standard text paragraph.
+  - `InputRichBlockSectionHeading`: Header blocks (`h1` through `h6`).
+  - `InputRichBlockTable`: Tables supporting `is_compact`, `is_bordered`, and `is_striped`.
+  - `InputRichBlockBlockQuotation`: Block quotes with optional captions.
+  - `InputRichBlockExpandableBlockQuotation`: Collapsible / expandable quotation blocks.
+  - `InputRichBlockDocument`: Embedded documents with captions (maps to MTProto `raw.types.PageBlockDocument`).
+  - `InputRichBlockButtons` / `RichBlockButtons`: Matrices of rich inline buttons embedded directly into rich message layouts.
 
-### Example:
+### Rich Buttons (`RichMessageButton` & `InputRichBlockButtons`):
+Kurigram supports embedding rich buttons directly inside message bodies using `InputRichBlockButtons`.
+
+#### Supported Button Flavors:
+- **URL Buttons**: Directs the user to an external link (`url="https://..."`).
+- **Callback Buttons**: Returns a callback payload to your bot (`callback_data="data"`).
+- **Text Buttons**: Standard text action buttons.
+
+Buttons are organized into a two-dimensional grid (`List[List[RichMessageButton]]`) where each inner list represents a button row.
+
+### Complete Rich Message & Rich Buttons Example:
 ```python
+from pyrogram import types
+
+# 1. Define rich inline button matrix
+btn_row_1 = [
+    types.RichMessageButton("Official Docs", url="https://docs.kurigram.icu"),
+    types.RichMessageButton("Community Chat", url="https://t.me/kurigram_chat")
+]
+btn_row_2 = [
+    types.RichMessageButton("Run Benchmarks", callback_data="benchmarks_run"),
+    types.RichMessageButton("System Status", callback_data="system_status")
+]
+
+buttons_block = types.InputRichBlockButtons(
+    buttons=[btn_row_1, btn_row_2]
+)
+
+# 2. Assemble complete Rich Message with headings, tables, quotations, and buttons
 rich_msg = types.InputRichMessage(
     blocks=[
         types.InputRichBlockSectionHeading(
-            text=types.RichTextBold("Release Notes v2.2"),
+            text=types.RichTextBold("Kurigram Performance Architecture"),
             size="h1"
         ),
         types.InputRichBlockParagraph(
-            text=types.RichText("Below are the performance benchmarks:")
+            text=types.RichText("Below are the verified throughput benchmarks across encryption engines:")
         ),
         types.InputRichBlockTable(
             cells=[
-                [types.RichBlockTableCell(types.RichText("Engine"), is_header=True), types.RichBlockTableCell(types.RichText("Throughput"), is_header=True)],
-                [types.RichBlockTableCell(types.RichText("HyperCrypto")), types.RichBlockTableCell(types.RichText("420 MB/s"))]
+                [
+                    types.RichBlockTableCell(types.RichText("Engine"), is_header=True),
+                    types.RichBlockTableCell(types.RichText("Speed"), is_header=True),
+                    types.RichBlockTableCell(types.RichText("Status"), is_header=True)
+                ],
+                [
+                    types.RichBlockTableCell(types.RichText("HyperCrypto (Rust)")),
+                    types.RichBlockTableCell(types.RichText("420 MB/s")),
+                    types.RichBlockTableCell(types.RichText("Active"))
+                ],
+                [
+                    types.RichBlockTableCell(types.RichText("TgCrypto (C)")),
+                    types.RichBlockTableCell(types.RichText("210 MB/s")),
+                    types.RichBlockTableCell(types.RichText("Supported"))
+                ],
+                [
+                    types.RichBlockTableCell(types.RichText("PyAes (Python)")),
+                    types.RichBlockTableCell(types.RichText("18 MB/s")),
+                    types.RichBlockTableCell(types.RichText("Fallback"))
+                ]
             ],
-            is_compact=True
+            is_compact=True,
+            is_bordered=True
         ),
-        types.InputRichBlockButtons(
-            buttons=[[types.RichMessageButton("View Benchmarks", url="https://example.com")]]
-        )
+        types.InputRichBlockExpandableBlockQuotation(
+            text=types.RichText("HyperCrypto acceleration is automatically detected and selected at client initialization.")
+        ),
+        # Embedded Rich Buttons block
+        buttons_block
     ]
 )
 
+# 3. Send via Client method
 await app.send_rich_message(chat_id, rich_msg)
 ```
+
+### MTProto Serialization Pipeline:
+- `InputRichBlockButtons` serializes directly to MTProto `raw.types.ReplyInlineMarkup(rows=[raw.types.KeyboardButtonRow(...)])`.
+- Individual `RichMessageButton` objects serialize to `raw.types.KeyboardButtonUrl`, `raw.types.KeyboardButtonCallback`, or `raw.types.KeyboardButton`.
+- When receiving updates, `RichBlock.read()` deserializes raw keyboard markups back into `RichBlockButtons`.
 
 ---
 ## 35. Ephemeral Messages
