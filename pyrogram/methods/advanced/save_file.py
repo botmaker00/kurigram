@@ -16,6 +16,8 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations as _annotations
+
 import asyncio
 import functools
 import inspect
@@ -88,16 +90,18 @@ class SaveFile:
                 You can either keep ``*args`` or add every single extra argument in your function signature.
 
         Returns:
-            ``InputFile``: On success, the uploaded file is returned in form of an InputFile object.
+            ``InputFile`` | ``None``: On success, the uploaded file is returned in form of an InputFile object. In case
+            *path* is None, and in case *file_id* is given so that a single missing part is uploaded instead of the
+            whole file, None is returned. A failed upload raises.
 
         Raises:
-            RPCError: In case of a Telegram RPC error.
+            RPCError: In case of a Telegram RPC error, including one that happened while a part was being sent.
         """
         async with self.save_file_semaphore:
             if path is None:
                 return None
 
-            errors = []
+            failures: list = []
 
             async def worker(session):
                 while True:
@@ -108,18 +112,12 @@ class SaveFile:
 
                     try:
                         await session.invoke(data)
-                    except StopTransmission:
-                        raise
                     except Exception as e:
-                        log.warning("Upload worker error: %s", e)
-                        errors.append(e)
-                        # Drain the queue so the main loop unblocks
-                        try:
-                            while True:
-                                queue.get_nowait()
-                        except asyncio.QueueEmpty:
-                            pass
-                        return
+                        # The failure is remembered rather than raised, because a worker that stops
+                        #  consuming leaves the producer below blocked forever on `queue.put()`, since
+                        #  the queue holds one item. It is raised at the end, once every worker has drained.
+                        log.exception(e)
+                        failures.append(e)
 
             part_size = 512 * 1024
 
@@ -159,8 +157,8 @@ class SaveFile:
 
             session = await self.get_session(dc_id, is_media=True)
 
-            queue = asyncio.Queue(workers_count)
             workers = [self.loop.create_task(worker(session)) for _ in range(workers_count)]
+            queue = asyncio.Queue(1)
 
             try:
                 fp.seek(part_size * file_part)
@@ -189,11 +187,8 @@ class SaveFile:
 
                     await queue.put(rpc)
 
-                    if errors:
-                        raise errors[0]
-
                     if is_missing_part:
-                        return
+                        break
 
                     if not is_big and not is_missing_part:
                         md5_sum.update(chunk)
@@ -216,34 +211,12 @@ class SaveFile:
                 raise
             except Exception as e:
                 log.exception(e)
-            else:
-                if errors:
-                    raise errors[0]
-                if is_big:
-                    return raw.types.InputFileBig(
-                        id=file_id,
-                        parts=file_total_parts,
-                        name=file_name,
-                    )
-                else:
-                    return raw.types.InputFile(
-                        id=file_id,
-                        parts=file_total_parts,
-                        name=file_name,
-                        md5_checksum=md5_sum
-                    )
+                raise
             finally:
                 for _ in workers:
-                    try:
-                        queue.put_nowait(None)
-                    except Exception:
-                        pass
+                    await queue.put(None)
 
-                for w in workers:
-                    if not w.done():
-                        w.cancel()
-
-                await asyncio.gather(*workers, return_exceptions=True)
+                await asyncio.gather(*workers)
 
                 if isinstance(path, (str, PurePath, os.PathLike)):
                     try:
@@ -251,3 +224,24 @@ class SaveFile:
                     except Exception:
                         pass
 
+        # Outside the `finally` on purpose: a worker only reports a failed part once it has been
+        #  woken up and drained above, so a check any earlier can miss it.
+        if failures:
+            raise failures[0]
+
+        if is_missing_part:
+            return None
+
+        if is_big:
+            return raw.types.InputFileBig(
+                id=file_id,
+                parts=file_total_parts,
+                name=file_name,
+            )
+
+        return raw.types.InputFile(
+            id=file_id,
+            parts=file_total_parts,
+            name=file_name,
+            md5_checksum=md5_sum
+        )
