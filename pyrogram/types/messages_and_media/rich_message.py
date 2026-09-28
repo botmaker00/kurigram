@@ -170,3 +170,7 @@ class InputRichMessage(Object):
         self.skip_entity_detection = skip_entity_detection
         self.blocks = blocks
         self.media = media
+
+
+InputRichMessageContent = InputRichMessage
+

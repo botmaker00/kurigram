@@ -122,6 +122,149 @@ class RichBlock(Object):
             return None
         if isinstance(rich_block, RichBlock):
             return rich_block
+
+        from pyrogram import raw, types
+
+        # Dictionary / Bot API dispatch
+        if isinstance(rich_block, dict):
+            b_type = (rich_block.get("type") or "").lower()
+            text_val = rich_block.get("text")
+            parsed_text = types.RichText._parse(client, text_val) if text_val is not None else None
+
+            if b_type in ("paragraph", "rich_block_paragraph"):
+                return RichBlockParagraph(client=client, text=parsed_text or types.RichText(""))
+            if b_type in ("section_heading", "rich_block_section_heading", "heading"):
+                return RichBlockSectionHeading(client=client, text=parsed_text or types.RichText(""), size=rich_block.get("size", "h1"))
+            if b_type in ("preformatted", "rich_block_preformatted", "code"):
+                return RichBlockPreformatted(client=client, text=parsed_text or types.RichText(""), language=rich_block.get("language"))
+            if b_type in ("footer", "rich_block_footer"):
+                return RichBlockFooter(client=client, text=parsed_text or types.RichText(""))
+            if b_type in ("divider", "rich_block_divider"):
+                return RichBlockDivider(client=client)
+            if b_type in ("mathematical_expression", "rich_block_mathematical_expression", "math"):
+                return RichBlockMathematicalExpression(client=client, text=parsed_text or types.RichText(""))
+            if b_type in ("anchor", "rich_block_anchor"):
+                return RichBlockAnchor(client=client, name=rich_block.get("name", ""))
+            if b_type in ("list", "rich_block_list"):
+                return RichBlockList(client=client, items=rich_block.get("items", []))
+            if b_type in ("block_quotation", "rich_block_block_quotation", "quote"):
+                return RichBlockBlockQuotation(client=client, text=parsed_text or types.RichText(""))
+            if b_type in ("expandable_block_quotation", "rich_block_expandable_block_quotation"):
+                return RichBlockExpandableBlockQuotation(client=client, text=parsed_text or types.RichText(""))
+            if b_type in ("pull_quotation", "rich_block_pull_quotation"):
+                return RichBlockPullQuotation(client=client, text=parsed_text or types.RichText(""))
+            if b_type in ("collage", "rich_block_collage"):
+                sub_blocks = [RichBlock._parse(client, b) for b in rich_block.get("blocks", [])]
+                return RichBlockCollage(client=client, blocks=[b for b in sub_blocks if b])
+            if b_type in ("slideshow", "rich_block_slideshow"):
+                sub_blocks = [RichBlock._parse(client, b) for b in rich_block.get("blocks", [])]
+                return RichBlockSlideshow(client=client, blocks=[b for b in sub_blocks if b])
+            if b_type in ("table", "rich_block_table"):
+                return RichBlockTable(client=client, cells=rich_block.get("cells", []), is_bordered=rich_block.get("is_bordered"), is_striped=rich_block.get("is_striped"), is_compact=rich_block.get("is_compact"))
+            if b_type in ("details", "rich_block_details"):
+                title_val = rich_block.get("title")
+                parsed_title = types.RichText._parse(client, title_val) if title_val is not None else types.RichText("")
+                sub_blocks = [RichBlock._parse(client, b) for b in rich_block.get("blocks", [])]
+                return RichBlockDetails(client=client, title=parsed_title, blocks=[b for b in sub_blocks if b], is_open=rich_block.get("is_open"))
+            if b_type in ("map", "rich_block_map"):
+                return RichBlockMap(client=client, location=rich_block.get("location"))
+            if b_type in ("animation", "rich_block_animation"):
+                return RichBlockAnimation(client=client, animation=rich_block.get("animation"))
+            if b_type in ("audio", "rich_block_audio"):
+                return RichBlockAudio(client=client, audio=rich_block.get("audio"))
+            if b_type in ("document", "rich_block_document"):
+                return RichBlockDocument(client=client, document=rich_block.get("document"))
+            if b_type in ("photo", "rich_block_photo"):
+                return RichBlockPhoto(client=client, photo=rich_block.get("photo"))
+            if b_type in ("video", "rich_block_video"):
+                return RichBlockVideo(client=client, video=rich_block.get("video"))
+            if b_type in ("voice_note", "rich_block_voice_note"):
+                return RichBlockVoiceNote(client=client, voice_note=rich_block.get("voice_note"))
+            if b_type in ("thinking", "rich_block_thinking"):
+                return RichBlockThinking(client=client, text=parsed_text or types.RichText(""))
+            if b_type in ("buttons", "rich_block_buttons"):
+                return RichBlockButtons(client=client, buttons=rich_block.get("buttons", []))
+            return None
+
+        # Raw TL PageBlock dispatch
+        if isinstance(rich_block, raw.types.PageBlockParagraph):
+            return RichBlockParagraph(client=client, text=types.RichText._parse(client, rich_block.text) or types.RichText(""))
+        if isinstance(rich_block, raw.types.PageBlockHeader):
+            return RichBlockSectionHeading(client=client, text=types.RichText._parse(client, rich_block.text) or types.RichText(""), size="h1")
+        if isinstance(rich_block, raw.types.PageBlockSubheader):
+            return RichBlockSectionHeading(client=client, text=types.RichText._parse(client, rich_block.text) or types.RichText(""), size="h2")
+        if isinstance(rich_block, (raw.types.PageBlockHeading1, raw.types.PageBlockHeading2, raw.types.PageBlockHeading3, raw.types.PageBlockHeading4, raw.types.PageBlockHeading5, raw.types.PageBlockHeading6)):
+            h_size = type(rich_block).__name__.replace("PageBlockHeading", "h")
+            return RichBlockSectionHeading(client=client, text=types.RichText._parse(client, rich_block.text) or types.RichText(""), size=h_size.lower())
+        if isinstance(rich_block, (raw.types.PageBlockTitle, raw.types.PageBlockSubtitle, raw.types.PageBlockKicker)):
+            return RichBlockSectionHeading(client=client, text=types.RichText._parse(client, rich_block.text) or types.RichText(""), size="h1")
+        if isinstance(rich_block, raw.types.PageBlockPreformatted):
+            return RichBlockPreformatted(client=client, text=types.RichText._parse(client, rich_block.text) or types.RichText(""), language=getattr(rich_block, "language", None))
+        if isinstance(rich_block, raw.types.PageBlockFooter):
+            return RichBlockFooter(client=client, text=types.RichText._parse(client, rich_block.text) or types.RichText(""))
+        if isinstance(rich_block, raw.types.PageBlockDivider):
+            return RichBlockDivider(client=client)
+        if isinstance(rich_block, raw.types.PageBlockAnchor):
+            return RichBlockAnchor(client=client, name=rich_block.name)
+        if isinstance(rich_block, raw.types.PageBlockMath):
+            return RichBlockMathematicalExpression(client=client, text=types.RichText(getattr(rich_block, "source", "")))
+        if isinstance(rich_block, raw.types.PageBlockThinking):
+            return RichBlockThinking(client=client, text=types.RichText._parse(client, rich_block.text) or types.RichText(""))
+        if isinstance(rich_block, raw.types.PageBlockBlockquote):
+            return RichBlockBlockQuotation(client=client, text=types.RichText._parse(client, rich_block.text) or types.RichText(""))
+        if isinstance(rich_block, raw.types.PageBlockBlockquoteBlocks):
+            return RichBlockBlockQuotation(client=client, text=types.RichText._parse(client, getattr(rich_block, "caption", "")) or types.RichText(""))
+        if isinstance(rich_block, raw.types.PageBlockPullquote):
+            return RichBlockPullQuotation(client=client, text=types.RichText._parse(client, rich_block.text) or types.RichText(""))
+        if isinstance(rich_block, raw.types.PageBlockCollage):
+            sub_blocks = [RichBlock._parse(client, b) for b in (rich_block.items or [])]
+            return RichBlockCollage(client=client, blocks=[b for b in sub_blocks if b])
+        if isinstance(rich_block, raw.types.PageBlockSlideshow):
+            sub_blocks = [RichBlock._parse(client, b) for b in (rich_block.items or [])]
+            return RichBlockSlideshow(client=client, blocks=[b for b in sub_blocks if b])
+        if isinstance(rich_block, raw.types.PageBlockTable):
+            table_cells = []
+            for row in getattr(rich_block, "rows", []) or []:
+                row_cells = []
+                for c in getattr(row, "cells", []) or []:
+                    c_text = types.RichText._parse(client, getattr(c, "text", None)) or types.RichText("")
+                    align = "center" if getattr(c, "align_center", False) else ("right" if getattr(c, "align_right", False) else "left")
+                    valign = "middle" if getattr(c, "valign_middle", False) else ("bottom" if getattr(c, "valign_bottom", False) else "top")
+                    row_cells.append(
+                        RichBlockTableCell(
+                            text=c_text,
+                            align=align,
+                            valign=valign,
+                            is_header=getattr(c, "header", None),
+                            colspan=getattr(c, "colspan", None),
+                            rowspan=getattr(c, "rowspan", None),
+                        )
+                    )
+                table_cells.append(row_cells)
+            return RichBlockTable(
+                client=client,
+                cells=table_cells,
+                is_bordered=getattr(rich_block, "bordered", None),
+                is_striped=getattr(rich_block, "striped", None),
+            )
+        if isinstance(rich_block, raw.types.PageBlockDetails):
+            sub_blocks = [RichBlock._parse(client, b) for b in (rich_block.blocks or [])]
+            return RichBlockDetails(client=client, title=types.RichText._parse(client, rich_block.title) or types.RichText(""), blocks=[b for b in sub_blocks if b], is_open=getattr(rich_block, "open", None))
+        if isinstance(rich_block, (raw.types.PageBlockList, raw.types.PageBlockOrderedList)):
+            items = []
+            for item in getattr(rich_block, "items", []) or []:
+                item_text = types.RichText._parse(client, getattr(item, "text", item)) or types.RichText("")
+                items.append(RichBlockListItem(text=item_text))
+            return RichBlockList(client=client, items=items)
+        if isinstance(rich_block, raw.types.PageBlockPhoto):
+            return RichBlockPhoto(client=client, photo=getattr(rich_block, "photo_id", None))
+        if isinstance(rich_block, raw.types.PageBlockVideo):
+            return RichBlockVideo(client=client, video=getattr(rich_block, "video_id", None))
+        if isinstance(rich_block, raw.types.PageBlockAudio):
+            return RichBlockAudio(client=client, audio=getattr(rich_block, "audio_id", None))
+        if isinstance(rich_block, (raw.types.PageBlockMap, getattr(raw.types, "InputPageBlockMap", object))):
+            return RichBlockMap(client=client, zoom=getattr(rich_block, "zoom", None), width=getattr(rich_block, "w", None), height=getattr(rich_block, "h", None))
+
         return None
 
 
@@ -164,12 +307,14 @@ class RichBlockBlockQuotation(RichBlock):
         self,
         *,
         client: "pyrogram.Client" = None,
-        blocks: List[RichBlock],
+        blocks: Optional[List[RichBlock]] = None,
         credit: Optional["types.RichText"] = None,
+        text: Optional[Union["types.RichText", str]] = None,
     ):
         super().__init__(client=client, type=enums.RichBlockType.BLOCK_QUOTATION)
-        self.blocks = blocks
+        self.blocks = blocks or []
         self.credit = credit
+        self.text = text or (self.blocks[0].text if self.blocks and hasattr(self.blocks[0], "text") else None)
 
 
 class RichBlockButtons(RichBlock):
@@ -236,12 +381,14 @@ class RichBlockExpandableBlockQuotation(RichBlock):
         self,
         *,
         client: "pyrogram.Client" = None,
-        blocks: List[RichBlock],
+        blocks: Optional[List[RichBlock]] = None,
         credit: Optional["types.RichText"] = None,
+        text: Optional[Union["types.RichText", str]] = None,
     ):
         super().__init__(client=client, type=enums.RichBlockType.EXPANDABLE_BLOCK_QUOTATION)
-        self.blocks = blocks
+        self.blocks = blocks or []
         self.credit = credit
+        self.text = text or (self.blocks[0].text if self.blocks and hasattr(self.blocks[0], "text") else None)
 
 
 class RichBlockFooter(RichBlock):
@@ -478,12 +625,14 @@ class InputRichBlockBlockQuotation(InputRichBlock):
     def __init__(
         self,
         *,
-        blocks: List[InputRichBlock],
+        blocks: Optional[List[InputRichBlock]] = None,
         credit: Optional["types.RichText"] = None,
+        text: Optional[Union["types.RichText", str]] = None,
     ):
         super().__init__(type=enums.InputRichBlockType.BLOCK_QUOTATION)
-        self.blocks = blocks
+        self.blocks = blocks or []
         self.credit = credit
+        self.text = text or (self.blocks[0].text if self.blocks and hasattr(self.blocks[0], "text") else None)
 
 
 class InputRichBlockButtons(InputRichBlock):
@@ -545,12 +694,14 @@ class InputRichBlockExpandableBlockQuotation(InputRichBlock):
     def __init__(
         self,
         *,
-        blocks: List[InputRichBlock],
+        blocks: Optional[List[InputRichBlock]] = None,
         credit: Optional["types.RichText"] = None,
+        text: Optional[Union["types.RichText", str]] = None,
     ):
         super().__init__(type=enums.InputRichBlockType.EXPANDABLE_BLOCK_QUOTATION)
-        self.blocks = blocks
+        self.blocks = blocks or []
         self.credit = credit
+        self.text = text or (self.blocks[0].text if self.blocks and hasattr(self.blocks[0], "text") else None)
 
 
 class InputRichBlockFooter(InputRichBlock):

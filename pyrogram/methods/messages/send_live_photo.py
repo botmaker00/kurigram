@@ -63,6 +63,9 @@ class SendLivePhoto:
         ] = None,
         progress: Optional[Callable] = None,
         progress_args: tuple = (),
+        receiver_user_id: Optional[int] = None,
+        callback_query_id: Optional[str] = None,
+        ephemeral_message_parameters: Optional["types.EphemeralMessageParameters"] = None,
     ) -> Optional["types.Message"]:
         """Send video files.
 
@@ -238,7 +241,14 @@ class SendLivePhoto:
                     await self.save_file(live_photo, file_id=file.id, file_part=e.value)
                 else:
                     messages = await utils.parse_messages(client=self, messages=r)
-
-                    return messages[0] if messages else None
+                    msg = messages[0] if messages else None
+                    if msg and (receiver_user_id or ephemeral_message_parameters):
+                        eff_receiver = receiver_user_id
+                        if ephemeral_message_parameters and getattr(ephemeral_message_parameters, "receiver_user_id", None):
+                            eff_receiver = ephemeral_message_parameters.receiver_user_id
+                        if eff_receiver:
+                            msg.receiver_user = types.User(id=eff_receiver, client=self)
+                            msg.ephemeral_message_id = msg.id
+                    return msg
         except StopTransmission:
             return None

@@ -161,6 +161,7 @@ class ChatAdministratorRights(Object):
             can_manage_topics=admin_rights.manage_topics,
             can_manage_direct_messages=admin_rights.manage_direct_messages,
             can_manage_tags=admin_rights.manage_ranks,
+            can_send_welcome_messages=getattr(admin_rights, "send_welcome_messages", False) or False,
         )
 
 ChatPrivileges = ChatAdministratorRights

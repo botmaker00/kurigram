@@ -72,6 +72,9 @@ class SendAnimation:
         quote_text: str = None,
         quote_entities: List["types.MessageEntity"] = None,
         quote_offset: int = None,
+        receiver_user_id: Optional[int] = None,
+        callback_query_id: Optional[str] = None,
+        ephemeral_message_parameters: Optional["types.EphemeralMessageParameters"] = None,
     ) -> Optional["types.Message"]:
         """Send animation files (animation or H.264/MPEG-4 AVC video without sound).
 
@@ -372,6 +375,14 @@ class SendAnimation:
                                 ).id
 
                                 await self.invoke(raw.functions.messages.SaveGif(id=document_id, unsave=True))  # type: ignore[arg-type]
+
+                            if message and (receiver_user_id or ephemeral_message_parameters):
+                                eff_receiver = receiver_user_id
+                                if ephemeral_message_parameters and getattr(ephemeral_message_parameters, "receiver_user_id", None):
+                                    eff_receiver = ephemeral_message_parameters.receiver_user_id
+                                if eff_receiver:
+                                    message.receiver_user = types.User(id=eff_receiver, client=self)
+                                    message.ephemeral_message_id = message.id
 
                             return message
 

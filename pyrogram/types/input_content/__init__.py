@@ -37,8 +37,14 @@ from .input_media_live_photo import InputMediaLivePhoto
 from .input_media_location import InputMediaLocation
 from .input_media_photo import InputMediaPhoto
 from .input_media_video import InputMediaVideo
+from .input_media_voice_note import InputMediaVoiceNote
 from .input_media_sticker import InputMediaSticker
 from .input_media_venue import InputMediaVenue
+from .input_paid_media_live_photo import (
+    InputPaidMediaLivePhoto,
+    InputPaidMediaPhoto,
+    InputPaidMediaVideo,
+)
 from .input_message_content import InputMessageContent
 from .input_phone_contact import InputPhoneContact
 from .input_poll_media import InputPollMedia
@@ -86,7 +92,11 @@ __all__ = [
     "InputMediaVenue",
     "InputMediaPhoto",
     "InputMediaVideo",
+    "InputMediaVoiceNote",
     "InputMediaSticker",
+    "InputPaidMediaLivePhoto",
+    "InputPaidMediaPhoto",
+    "InputPaidMediaVideo",
     "InputMessageContent",
     "InputPhoneContact",
     "InputPollMedia",

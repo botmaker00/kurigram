@@ -37,6 +37,7 @@ from .edit_forum_topic import EditForumTopic
 from .delete_message_reaction import DeleteMessageReaction
 from .create_folder_invite_link import CreateFolderInviteLink
 from .get_chat import GetChat
+from .get_chat_administrators import GetChatAdministrators
 from .get_chats_for_folder_invite_link import GetChatsForFolderInviteLink
 from .get_chat_event_log import GetChatEventLog
 from .get_folder_invite_links import GetFolderInviteLinks
@@ -99,6 +100,7 @@ from .reorder_folders import ReorderFolders
 
 class Chats(
     GetChat,
+    GetChatAdministrators,
     GetChatsForFolderInviteLink,
     LeaveChat,
     LeaveFolder,

@@ -67,16 +67,13 @@ class EditEphemeralMessageCaption:
         Returns:
             ``bool``: True on success.
         """
-        try:
-            await self.edit_message_caption(
-                chat_id=chat_id,
-                message_id=ephemeral_message_id,
-                caption=caption,
-                parse_mode=parse_mode,
-                caption_entities=caption_entities,
-                show_caption_above_media=show_caption_above_media,
-                reply_markup=reply_markup,
-            )
-            return True
-        except Exception:
-            return True
+        r = await self.edit_message_caption(
+            chat_id=chat_id,
+            message_id=ephemeral_message_id,
+            caption=caption,
+            parse_mode=parse_mode,
+            caption_entities=caption_entities,
+            show_caption_above_media=show_caption_above_media,
+            reply_markup=reply_markup,
+        )
+        return bool(r)

@@ -117,6 +117,7 @@ from .message_reactions import MessageReactions
 from .my_boost import MyBoost
 from .paid_media_info import PaidMediaInfo
 from .paid_media_preview import PaidMediaPreview
+from .paid_media_live_photo import PaidMediaLivePhoto
 from .paid_messages_price_changed import PaidMessagesPriceChanged
 from .paid_messages_refunded import PaidMessagesRefunded
 from .paid_reactor import PaidReactor
@@ -133,7 +134,7 @@ from .reaction import Reaction
 from .refunded_payment import RefundedPayment
 from .reply_parameters import ReplyParameters
 from .restriction_reason import RestrictionReason
-from .rich_message import RichMessage, RichMessageButton, InputRichMessage, InputRichMessageMedia
+from .rich_message import RichMessage, RichMessageButton, InputRichMessage, InputRichMessageMedia, InputRichMessageContent
 from .rich_block import *
 from .rich_text import *
 from .saved_credentials import SavedCredentials
@@ -257,6 +258,7 @@ __all__ = [
     "MyBoost",
     "PaidMediaInfo",
     "PaidMediaPreview",
+    "PaidMediaLivePhoto",
     "PaidMessagesPriceChanged",
     "PaidMessagesRefunded",
     "PaidReactor",
@@ -329,6 +331,7 @@ __all__ = [
     "RichMessageButton",
     "InputRichMessage",
     "InputRichMessageMedia",
+    "InputRichMessageContent",
     "RichText",
     "RichTextAnchor",
     "RichTextAnchorLink",

@@ -73,17 +73,14 @@ class EditEphemeralMessageText:
         Returns:
             ``bool``: True on success.
         """
-        try:
-            await self.edit_message_text(
-                chat_id=chat_id,
-                message_id=ephemeral_message_id,
-                text=text,
-                parse_mode=parse_mode,
-                entities=entities,
-                link_preview_options=link_preview_options,
-                reply_markup=reply_markup,
-                rich_message=rich_message,
-            )
-            return True
-        except Exception:
-            return True
+        r = await self.edit_message_text(
+            chat_id=chat_id,
+            message_id=ephemeral_message_id,
+            text=text,
+            parse_mode=parse_mode,
+            entities=entities,
+            link_preview_options=link_preview_options,
+            reply_markup=reply_markup,
+            rich_message=rich_message,
+        )
+        return bool(r)

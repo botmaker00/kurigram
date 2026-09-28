@@ -69,18 +69,20 @@ class InputMediaLivePhoto(InputMedia):
     def __init__(
         self,
         media: Union[str, BinaryIO],
-        photo: Union[str, BinaryIO],
+        photo: Optional[Union[str, BinaryIO]] = None,
         thumb: Optional[str] = None,
         caption: str = "",
         parse_mode: Optional["enums.ParseMode"] = None,
         caption_entities: Optional[List[MessageEntity]] = None,
         show_caption_above_media: Optional[bool] = None,
         has_spoiler: Optional[bool] = None,
-
+        video: Optional[Union[str, BinaryIO]] = None,
     ):
         super().__init__(media, caption, parse_mode, caption_entities)
 
-        self.photo = photo
+        self.media = media
+        self.photo = photo or media
+        self.video = video
         self.thumb = thumb
         self.show_caption_above_media = show_caption_above_media
         self.has_spoiler = has_spoiler

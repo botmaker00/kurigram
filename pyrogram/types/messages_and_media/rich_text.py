@@ -20,6 +20,16 @@ class RichText(Object):
         self.text = text
         self.type = type
 
+    def __str__(self) -> str:
+        return self.text or ""
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, str):
+            return self.text == other
+        if isinstance(other, RichText):
+            return self.text == other.text and self.type == other.type
+        return super().__eq__(other)
+
     @staticmethod
     def _parse(
         client: "pyrogram.Client" = None,
@@ -29,7 +39,136 @@ class RichText(Object):
             return None
         if isinstance(rich_text, RichText):
             return rich_text
-        return None
+        if isinstance(rich_text, str):
+            return RichText(text=rich_text, type=enums.RichTextType.PLAIN if hasattr(enums.RichTextType, "PLAIN") else "plain")
+
+        # Handle raw TL types
+        raw_name = type(rich_text).__name__
+        from pyrogram import raw, utils
+
+        def _sub_text(val):
+            if val is None:
+                return ""
+            if isinstance(val, str):
+                return val
+            if isinstance(val, RichText):
+                return val.text
+            parsed = RichText._parse(client, val)
+            return parsed.text if parsed else str(val)
+
+        if isinstance(rich_text, raw.types.TextPlain):
+            return RichText(text=rich_text.text)
+        if isinstance(rich_text, raw.types.TextBold):
+            return RichTextBold(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextItalic):
+            return RichTextItalic(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextUnderline):
+            return RichTextUnderline(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextStrike):
+            return RichTextStrikethrough(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextFixed):
+            return RichTextCode(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextSpoiler):
+            return RichTextSpoiler(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextUrl):
+            return RichTextUrl(text=_sub_text(rich_text.text), url=getattr(rich_text, "url", None))
+        if isinstance(rich_text, raw.types.TextEmail):
+            return RichTextEmailAddress(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextPhone):
+            return RichTextPhoneNumber(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextSubscript):
+            return RichTextSubscript(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextSuperscript):
+            return RichTextSuperscript(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextMarked):
+            return RichTextMarked(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextAnchor):
+            return RichTextAnchor(text=_sub_text(rich_text.text), name=getattr(rich_text, "name", None))
+        if isinstance(rich_text, raw.types.TextMath):
+            return RichTextMathematicalExpression(text=getattr(rich_text, "source", ""))
+        if isinstance(rich_text, raw.types.TextCustomEmoji):
+            return RichTextCustomEmoji(text=getattr(rich_text, "alt", ""), custom_emoji_id=str(getattr(rich_text, "document_id", "")))
+        if isinstance(rich_text, raw.types.TextMention):
+            return RichTextMention(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextMentionName):
+            from pyrogram import types as _types
+            return RichTextTextMention(text=_sub_text(rich_text.text), user=_types.User(id=rich_text.user_id, client=client))
+        if isinstance(rich_text, raw.types.TextHashtag):
+            return RichTextHashtag(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextCashtag):
+            return RichTextCashtag(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextBotCommand):
+            return RichTextBotCommand(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextBankCard):
+            return RichTextBankCardNumber(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextDate):
+            return RichTextDateTime(text=_sub_text(rich_text.text))
+        if isinstance(rich_text, raw.types.TextConcat):
+            sub_texts = [_sub_text(t) for t in (rich_text.texts or [])]
+            return RichText(text="".join(sub_texts))
+        if isinstance(rich_text, raw.types.TextEmpty):
+            return RichText(text="")
+
+        # Handle dictionary representations
+        if isinstance(rich_text, dict):
+            t_type = (rich_text.get("type") or "").lower()
+            text_val = rich_text.get("text", "")
+            if t_type in ("bold", "rich_text_bold"):
+                return RichTextBold(text=text_val)
+            if t_type in ("italic", "rich_text_italic"):
+                return RichTextItalic(text=text_val)
+            if t_type in ("underline", "rich_text_underline"):
+                return RichTextUnderline(text=text_val)
+            if t_type in ("strikethrough", "strike", "rich_text_strikethrough"):
+                return RichTextStrikethrough(text=text_val)
+            if t_type in ("code", "pre", "rich_text_code"):
+                return RichTextCode(text=text_val)
+            if t_type in ("spoiler", "rich_text_spoiler"):
+                return RichTextSpoiler(text=text_val)
+            if t_type in ("url", "rich_text_url"):
+                return RichTextUrl(text=text_val, url=rich_text.get("url"))
+            if t_type in ("email_address", "email", "rich_text_email_address"):
+                return RichTextEmailAddress(text=text_val)
+            if t_type in ("phone_number", "phone", "rich_text_phone_number"):
+                return RichTextPhoneNumber(text=text_val)
+            if t_type in ("bank_card_number", "bank_card", "rich_text_bank_card_number"):
+                return RichTextBankCardNumber(text=text_val)
+            if t_type in ("mention", "rich_text_mention"):
+                return RichTextMention(text=text_val, user_id=rich_text.get("user_id"))
+            if t_type in ("text_mention", "rich_text_text_mention"):
+                return RichTextTextMention(text=text_val, user=rich_text.get("user"))
+            if t_type in ("hashtag", "rich_text_hashtag"):
+                return RichTextHashtag(text=text_val)
+            if t_type in ("cashtag", "rich_text_cashtag"):
+                return RichTextCashtag(text=text_val)
+            if t_type in ("bot_command", "rich_text_bot_command"):
+                return RichTextBotCommand(text=text_val)
+            if t_type in ("custom_emoji", "rich_text_custom_emoji"):
+                return RichTextCustomEmoji(text=text_val, custom_emoji_id=rich_text.get("custom_emoji_id"))
+            if t_type in ("subscript", "rich_text_subscript"):
+                return RichTextSubscript(text=text_val)
+            if t_type in ("superscript", "rich_text_superscript"):
+                return RichTextSuperscript(text=text_val)
+            if t_type in ("marked", "rich_text_marked"):
+                return RichTextMarked(text=text_val)
+            if t_type in ("mathematical_expression", "math", "rich_text_mathematical_expression"):
+                return RichTextMathematicalExpression(text=text_val)
+            if t_type in ("date_time", "date", "rich_text_date_time"):
+                return RichTextDateTime(text=text_val, date_time_format=rich_text.get("date_time_format"))
+            if t_type in ("anchor", "rich_text_anchor"):
+                return RichTextAnchor(text=text_val, name=rich_text.get("name"))
+            if t_type in ("anchor_link", "rich_text_anchor_link"):
+                return RichTextAnchorLink(text=text_val, anchor_name=rich_text.get("anchor_name"))
+            if t_type in ("reference", "rich_text_reference"):
+                return RichTextReference(text=text_val, index=rich_text.get("index"))
+            if t_type in ("reference_link", "rich_text_reference_link"):
+                return RichTextReferenceLink(text=text_val, reference_index=rich_text.get("reference_index"))
+            if t_type in ("button", "rich_text_button"):
+                return RichTextButton(text=text_val, button=rich_text.get("button"))
+            return RichText(text=text_val, type=t_type)
+
+        # Fallback for generic objects
+        return RichText(text=str(getattr(rich_text, "text", rich_text)))
 
 
 class RichTextBold(RichText):

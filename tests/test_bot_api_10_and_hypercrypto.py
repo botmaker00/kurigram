@@ -327,3 +327,201 @@ async def test_message_parse_and_rich_message_parse():
     assert parsed_dict.is_rtl is True
 
 
+def test_paid_media_live_photo_and_inputs():
+    pmlp = types.PaidMediaLivePhoto(
+        photo=types.Photo(file_id="photo123", file_unique_id="u123", width=100, height=100, file_size=1024, date=0),
+        video=types.Video(file_id="vid123", file_unique_id="uv123", width=100, height=100, duration=3, file_size=2048, date=0, codec="h264")
+    )
+    assert pmlp.photo.file_id == "photo123"
+    assert pmlp.video.file_id == "vid123"
+
+    inp_lp = types.InputPaidMediaLivePhoto(media="photo.jpg", video="video.mp4")
+    assert inp_lp.media == "photo.jpg"
+    assert inp_lp.video == "video.mp4"
+
+    inp_photo = types.InputPaidMediaPhoto(media="photo.jpg")
+    assert inp_photo.media == "photo.jpg"
+
+    inp_video = types.InputPaidMediaVideo(media="video.mp4")
+    assert inp_video.media == "video.mp4"
+
+
+@pytest.mark.asyncio
+async def test_input_media_voice_note():
+    import io
+    bio = io.BytesIO(b"dummy ogg audio")
+    bio.name = "voice.ogg"
+    vm = types.InputMediaVoiceNote(media=bio, duration=15)
+    assert vm.duration == 15
+    assert vm.media is bio
+
+    class DummyClient:
+        async def save_file(self, path, progress=None, progress_args=()):
+            return raw.types.InputFile(id=1, parts=1, name="voice.ogg", md5_checksum="")
+
+        async def invoke(self, query):
+            assert isinstance(query, raw.functions.messages.UploadMedia)
+            assert isinstance(query.media, raw.types.InputMediaUploadedDocument)
+            assert query.media.mime_type == "audio/ogg"
+            has_voice = any(
+                isinstance(a, raw.types.DocumentAttributeAudio) and a.voice is True
+                for a in query.media.attributes
+            )
+            assert has_voice
+            doc = raw.types.Document(
+                id=12345,
+                access_hash=67890,
+                file_reference=b"ref",
+                date=0,
+                mime_type="audio/ogg",
+                size=100,
+                dc_id=1,
+                attributes=[],
+            )
+            return raw.types.MessageMediaDocument(document=doc)
+
+    raw_media = await vm.write(DummyClient())
+    assert isinstance(raw_media, raw.types.InputMediaDocument)
+    assert raw_media.id.id == 12345
+
+
+def test_external_reply_info_live_photo():
+    eri = types.ExternalReplyInfo(
+        origin=types.MessageOriginUser(date=0, sender_user=types.User(id=1, first_name="X")),
+        live_photo=types.LivePhoto(
+            photo=types.Photo(file_id="p1", file_unique_id="up1", width=10, height=10, file_size=100, date=0),
+            video=types.Video(file_id="v1", file_unique_id="uv1", width=10, height=10, duration=2, file_size=200, date=0, codec="h264")
+        )
+    )
+    assert eri.live_photo is not None
+    assert eri.live_photo.photo.file_id == "p1"
+    assert eri.message_id is None
+
+
+def test_rich_text_parse_raw_types():
+    app = Client("test_session")
+    # TextBold
+    tb = raw.types.TextBold(text=raw.types.TextPlain(text="hello"))
+    parsed_tb = types.RichText._parse(app, tb)
+    assert isinstance(parsed_tb, types.RichTextBold)
+    assert parsed_tb.text == "hello"
+
+    # TextItalic
+    ti = raw.types.TextItalic(text=raw.types.TextPlain(text="italic"))
+    parsed_ti = types.RichText._parse(app, ti)
+    assert isinstance(parsed_ti, types.RichTextItalic)
+    assert parsed_ti.text == "italic"
+
+    # TextUrl
+    tu = raw.types.TextUrl(text=raw.types.TextPlain(text="link"), url="https://example.com", webpage_id=0)
+    parsed_tu = types.RichText._parse(app, tu)
+    assert isinstance(parsed_tu, types.RichTextUrl)
+    assert parsed_tu.url == "https://example.com"
+    assert parsed_tu.text == "link"
+
+    # TextMention
+    tm = raw.types.TextMention(text=raw.types.TextPlain(text="@bot"))
+    parsed_tm = types.RichText._parse(app, tm)
+    assert isinstance(parsed_tm, types.RichTextMention)
+    assert parsed_tm.text == "@bot"
+
+
+def test_rich_block_parse_raw_types():
+    app = Client("test_session")
+    # PageBlockParagraph
+    pb_p = raw.types.PageBlockParagraph(text=raw.types.TextPlain(text="Paragraph text"))
+    parsed_p = types.RichBlock._parse(app, pb_p)
+    assert isinstance(parsed_p, types.RichBlockParagraph)
+    assert parsed_p.text == "Paragraph text"
+
+    # PageBlockDivider
+    pb_div = raw.types.PageBlockDivider()
+    parsed_div = types.RichBlock._parse(app, pb_div)
+    assert isinstance(parsed_div, types.RichBlockDivider)
+
+    # PageBlockBlockquote
+    pb_bq = raw.types.PageBlockBlockquote(text=raw.types.TextPlain(text="Quote"), caption=raw.types.TextEmpty())
+    parsed_bq = types.RichBlock._parse(app, pb_bq)
+    assert isinstance(parsed_bq, types.RichBlockBlockQuotation)
+    assert parsed_bq.text == "Quote"
+
+    # PageBlockTable
+    cell = raw.types.PageTableCell(text=raw.types.TextPlain(text="Cell 1"))
+    row = raw.types.PageTableRow(cells=[cell])
+    pb_table = raw.types.PageBlockTable(title=raw.types.TextEmpty(), rows=[row], bordered=True, striped=False)
+    parsed_table = types.RichBlock._parse(app, pb_table)
+    assert isinstance(parsed_table, types.RichBlockTable)
+    assert len(parsed_table.cells) == 1
+    assert parsed_table.cells[0][0].text == "Cell 1"
+
+
+def test_ephemeral_bound_methods_exist():
+    msg = types.Message(id=1, ephemeral_message_id=999)
+    assert callable(msg.edit_ephemeral_text)
+    assert callable(msg.edit_ephemeral_caption)
+    assert callable(msg.edit_ephemeral_media)
+    assert callable(msg.edit_ephemeral_reply_markup)
+    assert callable(msg.delete_ephemeral)
+    assert callable(msg.reply_rich)
+
+
+def test_hypercrypto_mtproto_pack_and_kdf():
+    from pyrogram.crypto import mtproto
+    from pyrogram.raw.core import Long
+
+    auth_key = os.urandom(256)
+    msg_key = os.urandom(16)
+    k1, iv1 = mtproto.kdf(auth_key, msg_key, True)
+    assert len(k1) == 32
+    assert len(iv1) == 32
+
+    # Test pack
+    salt = 987654321
+    session_id = b"sess_123"
+    auth_key_id = b"auth1234"
+
+    class SimpleRawMessage:
+        def __init__(self, body):
+            self.msg_id = 1111
+            self.seq_no = 1
+            self.length = len(body)
+            self.body = body
+
+        def write(self):
+            return Long(self.msg_id) + int(self.seq_no).to_bytes(4, "little") + int(self.length).to_bytes(4, "little") + self.body
+
+    msg = SimpleRawMessage(b"test mtproto message payload")
+    packed = mtproto.pack(msg, salt, session_id, auth_key, auth_key_id)
+    assert packed.startswith(auth_key_id)
+    assert len(packed) > 32
+
+
+def test_hypercrypto_aes_ctr_streaming_speed_and_accuracy():
+    key = os.urandom(32)
+    initial_iv = os.urandom(16)
+
+    iv_enc = bytearray(initial_iv)
+    st_enc = bytearray(1)
+
+    iv_dec = bytearray(initial_iv)
+    st_dec = bytearray(1)
+
+    chunks = [
+        os.urandom(1),
+        os.urandom(15),
+        os.urandom(16),
+        os.urandom(17),
+        os.urandom(1024),
+        os.urandom(65536),
+    ]
+
+    encrypted_chunks = [aes.ctr256_encrypt(c, key, iv_enc, st_enc) for c in chunks]
+    decrypted_chunks = [aes.ctr256_decrypt(c, key, iv_dec, st_dec) for c in encrypted_chunks]
+
+    assert decrypted_chunks == chunks
+    assert iv_enc == iv_dec
+    assert st_enc == st_dec
+
+
+
+

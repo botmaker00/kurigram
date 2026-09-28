@@ -55,13 +55,10 @@ class EditEphemeralMessageMedia:
         Returns:
             ``bool``: True on success.
         """
-        try:
-            await self.edit_message_media(
-                chat_id=chat_id,
-                message_id=ephemeral_message_id,
-                media=media,
-                reply_markup=reply_markup,
-            )
-            return True
-        except Exception:
-            return True
+        r = await self.edit_message_media(
+            chat_id=chat_id,
+            message_id=ephemeral_message_id,
+            media=media,
+            reply_markup=reply_markup,
+        )
+        return bool(r)

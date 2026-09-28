@@ -62,6 +62,9 @@ class ExternalReplyInfo(Object):
         photo (:obj:`~pyrogram.types.Photo`, *optional*):
             Message is a photo, information about the photo.
 
+        live_photo (:obj:`~pyrogram.types.LivePhoto`, *optional*):
+            Message is a live photo, information about the live photo.
+
         sticker (:obj:`~pyrogram.types.Sticker`, *optional*):
             Message is a sticker, information about the sticker.
 
@@ -118,7 +121,7 @@ class ExternalReplyInfo(Object):
         client: "pyrogram.Client" = None,
         origin: "types.MessageOrigin" = None,
         chat: "types.Chat" = None,
-        message_id: int,
+        message_id: Optional[int] = None,
         link_preview_options: Optional["types.LinkPreviewOptions"] = None,
         media: Optional["enums.MessageMediaType"] = None,
         animation: Optional["types.Animation"] = None,
@@ -126,6 +129,7 @@ class ExternalReplyInfo(Object):
         document: Optional["types.Document"] = None,
         paid_media: Optional["types.PaidMediaInfo"] = None,
         photo: Optional["types.Photo"] = None,
+        live_photo: Optional["types.LivePhoto"] = None,
         sticker: Optional["types.Sticker"] = None,
         story: Optional["types.Story"] = None,
         video: Optional["types.Video"] = None,
@@ -144,6 +148,18 @@ class ExternalReplyInfo(Object):
         venue: Optional["types.Venue"] = None,
     ):
         super().__init__(client)
+
+        self.origin = origin
+        self.chat = chat
+        self.message_id = message_id
+        self.link_preview_options = link_preview_options
+        self.media = media
+        self.animation = animation
+        self.audio = audio
+        self.document = document
+        self.paid_media = paid_media
+        self.photo = photo
+        self.live_photo = live_photo
 
         self.origin = origin
         self.chat = chat
@@ -190,6 +206,7 @@ class ExternalReplyInfo(Object):
         document = None
         paid_media = None
         photo = None
+        live_photo = None
         sticker = None
         story = None
         video = None
@@ -212,8 +229,17 @@ class ExternalReplyInfo(Object):
 
         if media:
             if isinstance(media, raw.types.MessageMediaPhoto):
+                if getattr(media, "live_photo", False):
+                    doc = getattr(media, "video", None)
+                    if isinstance(doc, raw.types.Document):
+                        attributes = {type(i): i for i in doc.attributes}
+                        if raw.types.DocumentAttributeVideo in attributes:
+                            video_attributes = attributes[raw.types.DocumentAttributeVideo]
+                            live_photo = types.LivePhoto._parse(client, doc, video_attributes)
+                    media_type = enums.MessageMediaType.LIVE_PHOTO
+                else:
+                    media_type = enums.MessageMediaType.PHOTO
                 photo = types.Photo._parse(client, media.photo, media.ttl_seconds)
-                media_type = enums.MessageMediaType.PHOTO
                 has_media_spoiler = media.spoiler
             elif isinstance(media, raw.types.MessageMediaGeo):
                 location = types.Location._parse(media.geo)
@@ -315,6 +341,7 @@ class ExternalReplyInfo(Object):
             document=document,
             paid_media=paid_media,
             photo=photo,
+            live_photo=live_photo,
             sticker=sticker,
             story=story,
             video=video,

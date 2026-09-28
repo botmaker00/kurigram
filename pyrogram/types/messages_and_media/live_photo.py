@@ -16,7 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional, Union
 
 from pyrogram.file_id import FileId, FileType, FileUniqueId, FileUniqueType
 
@@ -57,23 +57,27 @@ class LivePhoto(Object):
         self,
         *,
         client: "pyrogram.Client" = None,
-        file_id: str,
-        file_unique_id: str,
-        width: int,
-        height: int,
-        duration: int,
+        file_id: Optional[str] = None,
+        file_unique_id: Optional[str] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        duration: Optional[int] = None,
         mime_type: Optional[str] = None,
         file_size: Optional[int] = None,
+        photo: Optional[Union["types.Photo", List["types.PhotoSize"]]] = None,
+        video: Optional["types.Video"] = None,
     ):
         super().__init__(client)
 
-        self.file_id = file_id
-        self.file_unique_id = file_unique_id
-        self.width = width
-        self.height = height
-        self.duration = duration
-        self.mime_type = mime_type
-        self.file_size = file_size
+        self.file_id = file_id or (getattr(video, "file_id", None) if video else "")
+        self.file_unique_id = file_unique_id or (getattr(video, "file_unique_id", None) if video else "")
+        self.width = width or (getattr(video, "width", None) if video else (getattr(photo, "width", 0) if photo else 0))
+        self.height = height or (getattr(video, "height", None) if video else (getattr(photo, "height", 0) if photo else 0))
+        self.duration = duration or (getattr(video, "duration", 0) if video else 0)
+        self.mime_type = mime_type or (getattr(video, "mime_type", None) if video else None)
+        self.file_size = file_size or (getattr(video, "file_size", None) if video else None)
+        self.photo = photo
+        self.video = video
 
     @staticmethod
     def _parse(

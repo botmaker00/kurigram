@@ -35,28 +35,46 @@ try:
 
 
     def ctr256_encrypt(data: bytes, key: bytes, iv: bytearray, state: bytearray = None) -> bytes:
-        state = state if state is not None else bytearray(1)
-        out = bytearray(data)
+        if not data:
+            return b""
+        if state is None:
+            state = bytearray(1)
+
+        offset = state[0]
         dlen = len(data)
-        if dlen == 0:
-            return bytes(out)
-        offset = 0
-        while offset < dlen:
-            chunk = hypercrypto.ctr256_encrypt(b"\x00" * 16, key, bytes(iv))
-            avail = 16 - state[0]
-            take = min(dlen - offset, avail)
-            for i in range(take):
-                out[offset + i] ^= chunk[state[0] + i]
-            state[0] = (state[0] + take) % 16
-            offset += take
-            if state[0] == 0:
-                for k in range(15, -1, -1):
-                    try:
-                        iv[k] += 1
-                        break
-                    except ValueError:
-                        iv[k] = 0
-        return bytes(out)
+        iv_int = int.from_bytes(iv, "big")
+
+        if offset == 0:
+            res = hypercrypto.ctr256_encrypt(data, key, bytes(iv))
+            blocks_consumed = dlen // 16
+            new_offset = dlen % 16
+            iv_int = (iv_int + blocks_consumed) & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+            iv[:] = iv_int.to_bytes(16, "big")
+            state[0] = new_offset
+            return res
+        else:
+            take = min(dlen, 16 - offset)
+            block_ks = hypercrypto.ctr256_encrypt(b"\x00" * 16, key, bytes(iv))
+            prefix = bytes(data[i] ^ block_ks[offset + i] for i in range(take))
+
+            new_offset = (offset + take) % 16
+            if new_offset == 0:
+                iv_int = (iv_int + 1) & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+                iv[:] = iv_int.to_bytes(16, "big")
+            state[0] = new_offset
+
+            rest_data = data[take:]
+            if not rest_data:
+                return prefix
+
+            rest_res = hypercrypto.ctr256_encrypt(rest_data, key, bytes(iv))
+            rest_len = len(rest_data)
+            blocks_consumed = rest_len // 16
+            new_offset = rest_len % 16
+            iv_int = (iv_int + blocks_consumed) & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+            iv[:] = iv_int.to_bytes(16, "big")
+            state[0] = new_offset
+            return prefix + rest_res
 
 
     def ctr256_decrypt(data: bytes, key: bytes, iv: bytearray, state: bytearray = None) -> bytes:

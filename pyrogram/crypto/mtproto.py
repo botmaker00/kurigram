@@ -25,7 +25,16 @@ from pyrogram.raw.core import Message, Long
 from . import aes
 
 
+try:
+    import hypercrypto
+except ImportError:
+    hypercrypto = None
+
+
 def kdf(auth_key: bytes, msg_key: bytes, outgoing: bool) -> tuple:
+    if hypercrypto is not None:
+        return hypercrypto.kdf(auth_key, msg_key, outgoing)
+
     # https://core.telegram.org/mtproto/description#defining-aes-key-and-initialization-vector
     x = 0 if outgoing else 8
 
@@ -40,6 +49,10 @@ def kdf(auth_key: bytes, msg_key: bytes, outgoing: bool) -> tuple:
 
 def pack(message: Message, salt: int, session_id: bytes, auth_key: bytes, auth_key_id: bytes) -> bytes:
     data = Long(salt) + session_id + message.write()
+
+    if hypercrypto is not None:
+        return auth_key_id + hypercrypto.pack_message(auth_key, data, True)
+
     padding = urandom(-(len(data) + 12) % 16 + 12)
 
     # 88 = 88 + 0 (outgoing message)
@@ -57,6 +70,40 @@ def unpack(
     auth_key_id: bytes
 ) -> Message:
     SecurityCheckMismatch.check(b.read(8) == auth_key_id, "b.read(8) == auth_key_id")
+
+    if hypercrypto is not None:
+        raw_payload = b.read()
+        try:
+            decrypted = hypercrypto.unpack_message(auth_key, raw_payload, False)
+        except ValueError as e:
+            raise SecurityCheckMismatch(str(e))
+
+        data = BytesIO(decrypted)
+        data.read(8)  # Salt
+
+        SecurityCheckMismatch.check(data.read(8) == session_id, "data.read(8) == session_id")
+
+        try:
+            message = Message.read(data)
+        except KeyError as e:
+            if e.args[0] == 0:
+                raise ConnectionError("Received empty data. Check your internet connection.")
+
+            left = data.read().hex()
+            left = [left[i:i + 64] for i in range(0, len(left), 64)]
+            left = [[left[i:i + 8] for i in range(0, len(left), 8)] for left in left]
+            left = "\n".join(" ".join(x for x in left) for left in left)
+            raise ValueError(f"The server sent an unknown constructor: {hex(e.args[0])}\n{left}")
+
+        # Security check: message length
+        data.seek(32)
+        payload = data.read()
+        padding = payload[message.length:]
+        SecurityCheckMismatch.check(12 <= len(padding) <= 1024, "12 <= len(padding) <= 1024")
+        SecurityCheckMismatch.check(len(payload) % 4 == 0, "len(payload) % 4 == 0")
+        SecurityCheckMismatch.check(message.msg_id % 2 != 0, "message.msg_id % 2 != 0")
+
+        return message
 
     msg_key = b.read(16)
     aes_key, aes_iv = kdf(auth_key, msg_key, False)

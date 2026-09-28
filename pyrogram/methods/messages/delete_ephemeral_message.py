@@ -46,12 +46,9 @@ class DeleteEphemeralMessage:
         Returns:
             ``bool``: True on success.
         """
-        try:
-            await self.delete_messages(
-                chat_id=chat_id,
-                message_ids=ephemeral_message_id,
-                revoke=True,
-            )
-            return True
-        except Exception:
-            return True
+        r = await self.delete_messages(
+            chat_id=chat_id,
+            message_ids=ephemeral_message_id,
+            revoke=True,
+        )
+        return bool(r)

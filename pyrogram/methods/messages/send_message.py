@@ -376,7 +376,7 @@ class SendMessage:
                 else -peer.chat_id
             )
 
-            return types.Message(
+            msg = types.Message(
                 id=r.id,
                 chat=types.Chat(
                     id=peer_id,
@@ -393,5 +393,15 @@ class SendMessage:
                 ] if entities else None,
                 client=self
             )
+        else:
+            msg = next(iter(await utils.parse_messages(client=self, messages=r)), None)
 
-        return next(iter(await utils.parse_messages(client=self, messages=r)), None)
+        if msg and (receiver_user_id or ephemeral_message_parameters):
+            eff_receiver = receiver_user_id
+            if ephemeral_message_parameters and getattr(ephemeral_message_parameters, "receiver_user_id", None):
+                eff_receiver = ephemeral_message_parameters.receiver_user_id
+            if eff_receiver:
+                msg.receiver_user = types.User(id=eff_receiver, client=self)
+                msg.ephemeral_message_id = msg.id
+
+        return msg
