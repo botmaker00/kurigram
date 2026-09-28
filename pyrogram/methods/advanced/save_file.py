@@ -98,18 +98,6 @@ class SaveFile:
             if path is None:
                 return None
 
-            async def worker(session):
-                while True:
-                    data = await queue.get()
-
-                    if data is None:
-                        return
-
-                    try:
-                        await session.invoke(data)
-                    except Exception as e:
-                        log.exception(e)
-
             part_size = 512 * 1024
 
             if isinstance(path, (str, PurePath, os.PathLike)):
@@ -140,21 +128,78 @@ class SaveFile:
 
             file_total_parts = int(math.ceil(file_size / part_size))
             is_big = file_size > 10 * 1024 * 1024
-            workers_count = 4 if is_big else 1
             is_missing_part = file_id is not None
+            if is_missing_part:
+                workers_count = 1
+            else:
+                workers_count = min(12, max(4, file_total_parts)) if is_big else min(6, max(2, file_total_parts))
+
             file_id = file_id or self.rnd_id()
             md5_sum = md5() if not is_big and not is_missing_part else None
             dc_id = await self.storage.dc_id()
 
-            session = await self.get_session(dc_id, is_media=True)
+            pool_count = min(4, workers_count)
+            try:
+                if hasattr(self, "get_media_sessions"):
+                    sessions = await self.get_media_sessions(dc_id, count=pool_count)
+                else:
+                    sessions = [await self.get_session(dc_id, is_media=True)]
+            except Exception:
+                sessions = [await self.get_session(dc_id, is_media=True)]
 
-            workers = [self.loop.create_task(worker(session)) for _ in range(workers_count)]
-            queue = asyncio.Queue(1)
+            num_sessions = len(sessions) or 1
+            queue = asyncio.Queue(workers_count * 2)
+            worker_exception = None
+            uploaded_bytes = 0
+            progress_lock = asyncio.Lock()
+
+            async def worker(sess):
+                nonlocal worker_exception, uploaded_bytes
+                while True:
+                    item = await queue.get()
+
+                    if item is None:
+                        return
+
+                    if worker_exception is not None:
+                        continue
+
+                    chunk_len, rpc_data = item
+
+                    try:
+                        await sess.invoke(rpc_data)
+                    except Exception as e:
+                        if worker_exception is None:
+                            worker_exception = e
+                        log.exception(e)
+                    else:
+                        if progress:
+                            async with progress_lock:
+                                uploaded_bytes += chunk_len
+                                func = functools.partial(
+                                    progress,
+                                    min(uploaded_bytes, file_size),
+                                    file_size,
+                                    *progress_args
+                                )
+
+                                if inspect.iscoroutinefunction(progress):
+                                    await func()
+                                else:
+                                    await self.loop.run_in_executor(self.executor, func)
+
+            workers = [
+                self.loop.create_task(worker(sessions[i % num_sessions]))
+                for i in range(workers_count)
+            ]
 
             try:
                 fp.seek(part_size * file_part)
 
                 while True:
+                    if worker_exception is not None:
+                        raise worker_exception
+
                     chunk = fp.read(part_size)
 
                     if not chunk:
@@ -176,7 +221,7 @@ class SaveFile:
                             bytes=chunk
                         )
 
-                    await queue.put(rpc)
+                    await queue.put((len(chunk), rpc))
 
                     if is_missing_part:
                         return
@@ -185,30 +230,25 @@ class SaveFile:
                         md5_sum.update(chunk)
 
                     file_part += 1
-
-                    if progress:
-                        func = functools.partial(
-                            progress,
-                            min(file_part * part_size, file_size),
-                            file_size,
-                            *progress_args
-                        )
-
-                        if inspect.iscoroutinefunction(progress):
-                            await func()
-                        else:
-                            await self.loop.run_in_executor(self.executor, func)
             except StopTransmission:
                 raise
             except Exception as e:
                 log.exception(e)
+                raise
             else:
+                for _ in workers:
+                    await queue.put(None)
+
+                await asyncio.gather(*workers)
+
+                if worker_exception is not None:
+                    raise worker_exception
+
                 if is_big:
                     return raw.types.InputFileBig(
                         id=file_id,
                         parts=file_total_parts,
                         name=file_name,
-
                     )
                 else:
                     return raw.types.InputFile(
@@ -221,7 +261,7 @@ class SaveFile:
                 for _ in workers:
                     await queue.put(None)
 
-                await asyncio.gather(*workers)
+                await asyncio.gather(*workers, return_exceptions=True)
 
                 if isinstance(path, (str, PurePath, os.PathLike)):
                     fp.close()

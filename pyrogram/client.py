@@ -20,6 +20,7 @@ import asyncio
 import functools
 import inspect
 import logging
+import math
 import os
 import platform
 import re
@@ -393,6 +394,8 @@ class Client(Methods):
 
         self.sessions = {}
         self.media_sessions = {}
+        self.media_sessions_pool = {}
+        self.media_sessions_pool_lock = asyncio.Lock()
         self.sessions_lock = asyncio.Lock()
 
         self.save_file_semaphore = asyncio.Semaphore(self.max_concurrent_transmissions)
@@ -1163,6 +1166,9 @@ class Client(Methods):
             chunk_size = 1024 * 1024
             offset_bytes = abs(offset) * chunk_size
 
+            if file_size > 0:
+                total = min(total, int(math.ceil(file_size / chunk_size)))
+
             dc_id = file_id.dc_id
 
             try:
@@ -1178,40 +1184,105 @@ class Client(Methods):
                 )
 
                 if isinstance(r, raw.types.upload.File):
-                    while True:
-                        chunk = r.bytes
+                    chunk = r.bytes
 
-                        yield chunk
+                    yield chunk
 
-                        current += 1
-                        offset_bytes += chunk_size
+                    current += 1
+                    offset_bytes += len(chunk)
 
-                        if progress:
-                            func = functools.partial(
-                                progress,
-                                min(offset_bytes, file_size)
-                                if file_size != 0
-                                else offset_bytes,
-                                file_size,
-                                *progress_args
-                            )
+                    if progress:
+                        func = functools.partial(
+                            progress,
+                            min(offset_bytes, file_size)
+                            if file_size != 0
+                            else offset_bytes,
+                            file_size,
+                            *progress_args
+                        )
 
-                            if inspect.iscoroutinefunction(progress):
-                                await func()
-                            else:
-                                await self.loop.run_in_executor(self.executor, func)
+                        if inspect.iscoroutinefunction(progress):
+                            await func()
+                        else:
+                            await self.loop.run_in_executor(self.executor, func)
 
-                        if len(chunk) < chunk_size or current >= total:
-                            break
+                    if len(chunk) < chunk_size or current >= total:
+                        return
 
-                        r = await session.invoke(
+                    # High-speed pipelined prefetch window across media sessions
+                    max_in_flight = 8
+                    try:
+                        sessions = await self.get_media_sessions(dc_id, count=4)
+                    except Exception:
+                        sessions = [session]
+
+                    num_sessions = len(sessions) or 1
+                    pending_tasks = {}
+                    next_part_index = current
+                    next_yield_index = current
+                    eof_reached = False
+
+                    async def fetch_chunk(sess, req_offset):
+                        res = await sess.invoke(
                             raw.functions.upload.GetFile(
                                 location=location,
-                                offset=offset_bytes,
+                                offset=req_offset,
                                 limit=chunk_size
                             ),
                             sleep_threshold=30
                         )
+                        return res.bytes if isinstance(res, raw.types.upload.File) else b""
+
+                    try:
+                        while next_yield_index < total and not (eof_reached and next_yield_index >= next_part_index):
+                            while (
+                                not eof_reached
+                                and len(pending_tasks) < max_in_flight
+                                and next_part_index < total
+                            ):
+                                sess = sessions[next_part_index % num_sessions]
+                                req_offset = abs(offset) * chunk_size + next_part_index * chunk_size
+                                task = self.loop.create_task(fetch_chunk(sess, req_offset))
+                                pending_tasks[next_part_index] = task
+                                next_part_index += 1
+
+                            if not pending_tasks:
+                                break
+
+                            chunk_task = pending_tasks.pop(next_yield_index)
+                            chunk = await chunk_task
+
+                            if len(chunk) < chunk_size:
+                                eof_reached = True
+                                for idx in list(pending_tasks.keys()):
+                                    if idx > next_yield_index:
+                                        pending_tasks.pop(idx).cancel()
+
+                            if chunk:
+                                yield chunk
+
+                            offset_bytes += len(chunk)
+                            next_yield_index += 1
+
+                            if progress:
+                                func = functools.partial(
+                                    progress,
+                                    min(offset_bytes, file_size) if file_size != 0 else offset_bytes,
+                                    file_size,
+                                    *progress_args
+                                )
+                                if inspect.iscoroutinefunction(progress):
+                                    await func()
+                                else:
+                                    await self.loop.run_in_executor(self.executor, func)
+
+                            if len(chunk) < chunk_size or next_yield_index >= total:
+                                break
+                    finally:
+                        for t in pending_tasks.values():
+                            t.cancel()
+                        if pending_tasks:
+                            await asyncio.gather(*pending_tasks.values(), return_exceptions=True)
 
                 elif isinstance(r, raw.types.upload.FileCdnRedirect):
 
@@ -1422,6 +1493,25 @@ class Client(Methods):
                 raise AuthBytesInvalid
 
         return session
+
+    async def get_media_sessions(self, dc_id: int, count: int = 4) -> List["Session"]:
+        """Get or create a pool of concurrent media sessions for the given datacenter."""
+        async with self.media_sessions_pool_lock:
+            pool = self.media_sessions_pool.setdefault(dc_id, [])
+            if not pool:
+                primary = await self.get_session(dc_id, is_media=True)
+                pool.append(primary)
+
+            target_count = max(1, count)
+            while len(pool) < target_count:
+                try:
+                    s = await self.get_session(dc_id, is_media=True, temporary=True)
+                    pool.append(s)
+                except Exception as e:
+                    log.warning("[%s] Failed to expand media session pool for DC %s: %s", self.name, dc_id, e)
+                    break
+
+            return list(pool)
 
     async def get_dc_option(
         self,

@@ -57,6 +57,16 @@ class Terminate:
 
         self.media_sessions.clear()
 
+        for pool in getattr(self, "media_sessions_pool", {}).values():
+            for s in pool:
+                try:
+                    await s.stop()
+                except Exception:
+                    pass
+
+        if hasattr(self, "media_sessions_pool"):
+            self.media_sessions_pool.clear()
+
         self.updates_watchdog_event.set()
 
         if self.updates_watchdog_task is not None:
