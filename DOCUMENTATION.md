@@ -108,7 +108,7 @@ Install Kurigram with native cryptographic acceleration and fast event loops:
 pip install kurigram[fast]
 ```
 The `fast` extra installs:
-- `hypercrypto>=0.1.1`: Rust-implemented AES-256-IGE and AES-256-CTR cryptographic engine.
+- `hypercrypto>=0.1.2`: Rust-implemented AES-256-IGE and AES-256-CTR cryptographic engine.
 - `uvloop<=0.22.1`: Fast event loop implementation for Linux and macOS.
 
 ### Development Installation

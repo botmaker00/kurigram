@@ -95,12 +95,11 @@ def unpack(
             left = "\n".join(" ".join(x for x in left) for left in left)
             raise ValueError(f"The server sent an unknown constructor: {hex(e.args[0])}\n{left}")
 
-        # Security check: message length
-        data.seek(32)
-        payload = data.read()
-        padding = payload[message.length:]
-        SecurityCheckMismatch.check(12 <= len(padding) <= 1024, "12 <= len(padding) <= 1024")
-        SecurityCheckMismatch.check(len(payload) % 4 == 0, "len(payload) % 4 == 0")
+        # Security check: message length (zero-copy)
+        payload_len = len(decrypted) - 32
+        padding_len = payload_len - message.length
+        SecurityCheckMismatch.check(12 <= padding_len <= 1024, "12 <= len(padding) <= 1024")
+        SecurityCheckMismatch.check(payload_len % 4 == 0, "len(payload) % 4 == 0")
         SecurityCheckMismatch.check(message.msg_id % 2 != 0, "message.msg_id % 2 != 0")
 
         return message

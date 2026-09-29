@@ -35,50 +35,11 @@ try:
 
 
     def ctr256_encrypt(data: bytes, key: bytes, iv: bytearray, state: bytearray = None) -> bytes:
-        if not data:
-            return b""
-        if state is None:
-            state = bytearray(1)
-
-        offset = state[0]
-        dlen = len(data)
-        iv_int = int.from_bytes(iv, "big")
-
-        if offset == 0:
-            res = hypercrypto.ctr256_encrypt(data, key, bytes(iv))
-            blocks_consumed = dlen // 16
-            new_offset = dlen % 16
-            iv_int = (iv_int + blocks_consumed) & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-            iv[:] = iv_int.to_bytes(16, "big")
-            state[0] = new_offset
-            return res
-        else:
-            take = min(dlen, 16 - offset)
-            block_ks = hypercrypto.ctr256_encrypt(b"\x00" * 16, key, bytes(iv))
-            prefix = bytes(data[i] ^ block_ks[offset + i] for i in range(take))
-
-            new_offset = (offset + take) % 16
-            if new_offset == 0:
-                iv_int = (iv_int + 1) & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-                iv[:] = iv_int.to_bytes(16, "big")
-            state[0] = new_offset
-
-            rest_data = data[take:]
-            if not rest_data:
-                return prefix
-
-            rest_res = hypercrypto.ctr256_encrypt(rest_data, key, bytes(iv))
-            rest_len = len(rest_data)
-            blocks_consumed = rest_len // 16
-            new_offset = rest_len % 16
-            iv_int = (iv_int + blocks_consumed) & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-            iv[:] = iv_int.to_bytes(16, "big")
-            state[0] = new_offset
-            return prefix + rest_res
+        return hypercrypto.ctr256_encrypt(data, key, iv, state or bytearray(1))
 
 
     def ctr256_decrypt(data: bytes, key: bytes, iv: bytearray, state: bytearray = None) -> bytes:
-        return ctr256_encrypt(data, key, iv, state)
+        return hypercrypto.ctr256_decrypt(data, key, iv, state or bytearray(1))
 
 
     def xor(a: bytes, b: bytes) -> bytes:
@@ -88,59 +49,25 @@ try:
             "big",
         )
 except ImportError:
-    try:
-        import tgcrypto
+    import pyaes
 
-        log.info("Using TgCrypto")
-
-
-        def ige256_encrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
-            return tgcrypto.ige256_encrypt(data, key, iv)
-
-
-        def ige256_decrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
-            return tgcrypto.ige256_decrypt(data, key, iv)
-
-
-        def ctr256_encrypt(data: bytes, key: bytes, iv: bytearray, state: bytearray = None) -> bytes:
-            return tgcrypto.ctr256_encrypt(data, key, iv, state or bytearray(1))
-
-
-        def ctr256_decrypt(data: bytes, key: bytes, iv: bytearray, state: bytearray = None) -> bytes:
-            return tgcrypto.ctr256_decrypt(data, key, iv, state or bytearray(1))
-
-
-        def xor(a: bytes, b: bytes) -> bytes:
-            return int.to_bytes(
-                int.from_bytes(a, "big") ^ int.from_bytes(b, "big"),
-                len(a),
-                "big",
-            )
-    except ImportError:
-        import pyaes
-
-        log.warning(
-            "HyperCrypto is missing! "
-            "Kurigram will work the same, but at a much slower speed. "
-            "More info: https://docs.kurigram.icu"
-        )
-
+    log.warning(
+        "HyperCrypto is missing! "
+        "Kurigram will work the same, but at a much slower speed. "
+        "More info: https://docs.kurigram.icu"
+    )
 
     def ige256_encrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
         return ige(data, key, iv, True)
 
-
     def ige256_decrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
         return ige(data, key, iv, False)
-
 
     def ctr256_encrypt(data: bytes, key: bytes, iv: bytearray, state: bytearray = None) -> bytes:
         return ctr(data, key, iv, state or bytearray(1))
 
-
     def ctr256_decrypt(data: bytes, key: bytes, iv: bytearray, state: bytearray = None) -> bytes:
         return ctr(data, key, iv, state or bytearray(1))
-
 
     def xor(a: bytes, b: bytes) -> bytes:
         return int.to_bytes(

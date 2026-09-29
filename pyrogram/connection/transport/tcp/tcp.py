@@ -142,8 +142,8 @@ class TCP:
             if sock:
                 try:
                     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 1024)
-                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 1024)
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4 * 1024 * 1024)
                 except Exception:
                     pass
 

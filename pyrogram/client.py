@@ -1182,40 +1182,78 @@ class Client(Methods):
                 )
 
                 if isinstance(r, raw.types.upload.File):
-                    while True:
-                        chunk = r.bytes
+                    # Bounded prefetching queue: overlaps network transfer of next chunk
+                    # with disk writing/progress callback while strictly bounding RAM (max 2 MB in queue)
+                    chunk_queue: asyncio.Queue = asyncio.Queue(2)
+                    producer_error: list = []
 
-                        yield chunk
+                    async def fetch_worker(initial_chunk: bytes):
+                        cur_offset = offset_bytes + chunk_size
+                        cur_count = 1
+                        await chunk_queue.put(initial_chunk)
+                        if len(initial_chunk) < chunk_size or cur_count >= total:
+                            await chunk_queue.put(None)
+                            return
 
-                        current += 1
-                        offset_bytes += chunk_size
+                        while True:
+                            try:
+                                res = await session.invoke(
+                                    raw.functions.upload.GetFile(
+                                        location=location,
+                                        offset=cur_offset,
+                                        limit=chunk_size
+                                    ),
+                                    sleep_threshold=30
+                                )
+                                chunk_data = res.bytes
+                                cur_count += 1
+                                cur_offset += chunk_size
+                                await chunk_queue.put(chunk_data)
 
-                        if progress:
-                            func = functools.partial(
-                                progress,
-                                min(offset_bytes, file_size)
-                                if file_size != 0
-                                else offset_bytes,
-                                file_size,
-                                *progress_args
-                            )
+                                if len(chunk_data) < chunk_size or cur_count >= total:
+                                    await chunk_queue.put(None)
+                                    break
+                            except Exception as e:
+                                producer_error.append(e)
+                                await chunk_queue.put(None)
+                                break
 
-                            if inspect.iscoroutinefunction(progress):
-                                await func()
-                            else:
-                                await self.loop.run_in_executor(self.executor, func)
+                    producer_task = self.loop.create_task(fetch_worker(r.bytes))
 
-                        if len(chunk) < chunk_size or current >= total:
-                            break
+                    try:
+                        while True:
+                            chunk = await chunk_queue.get()
+                            if chunk is None:
+                                if producer_error:
+                                    raise producer_error[0]
+                                break
 
-                        r = await session.invoke(
-                            raw.functions.upload.GetFile(
-                                location=location,
-                                offset=offset_bytes,
-                                limit=chunk_size
-                            ),
-                            sleep_threshold=30
-                        )
+                            yield chunk
+
+                            current += 1
+                            offset_bytes += chunk_size
+
+                            if progress:
+                                func = functools.partial(
+                                    progress,
+                                    min(offset_bytes, file_size)
+                                    if file_size != 0
+                                    else offset_bytes,
+                                    file_size,
+                                    *progress_args
+                                )
+
+                                if inspect.iscoroutinefunction(progress):
+                                    await func()
+                                else:
+                                    await self.loop.run_in_executor(self.executor, func)
+                    finally:
+                        if not producer_task.done():
+                            producer_task.cancel()
+                            try:
+                                await producer_task
+                            except (asyncio.CancelledError, Exception):
+                                pass
 
                 elif isinstance(r, raw.types.upload.FileCdnRedirect):
 
