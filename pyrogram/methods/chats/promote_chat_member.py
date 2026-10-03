@@ -77,6 +77,9 @@ class PromoteChatMember:
         if isinstance(raw_chat_member, raw.types.ChannelParticipantAdmin):
             rank = raw_chat_member.rank
 
+        if not hasattr(privileges, "write") and getattr(privileges, "can_send_welcome_messages", False):
+            raise NotImplementedError("can_send_welcome_messages requires a newer TL layer")
+
         admin_rights = (
             privileges.write(self)
             if hasattr(privileges, "write")
@@ -97,7 +100,6 @@ class PromoteChatMember:
                 manage_topics=privileges.can_manage_topics,
                 manage_direct_messages=getattr(privileges, "can_manage_direct_messages", False),
                 manage_ranks=privileges.can_manage_tags,
-                send_welcome_messages=getattr(privileges, "can_send_welcome_messages", False) or False,
                 other=privileges.can_manage_chat,
             )
         )

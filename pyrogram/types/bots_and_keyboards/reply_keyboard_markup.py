@@ -110,7 +110,9 @@ class ReplyKeyboardMarkup(Object):
         )
 
     async def write(self, _: "pyrogram.Client" = None):
-        markup = raw.types.ReplyKeyboardMarkup(
+        if self.force_reply:
+            raise NotImplementedError("force_reply on ReplyKeyboardMarkup requires a newer TL layer")
+        return raw.types.ReplyKeyboardMarkup(
             rows=[raw.types.KeyboardButtonRow(
                 buttons=[
                     types.KeyboardButton(j).write()
@@ -124,11 +126,3 @@ class ReplyKeyboardMarkup(Object):
             persistent=self.is_persistent or None,
             placeholder=self.placeholder or None
         )
-        if self.force_reply is not None:
-            if isinstance(self.force_reply, types.ForceReply):
-                markup.force_reply = await self.force_reply.write(_)
-            elif self.force_reply is True:
-                markup.force_reply = await types.ForceReply().write(_)
-            else:
-                markup.force_reply = self.force_reply
-        return markup

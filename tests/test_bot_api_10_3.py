@@ -24,43 +24,50 @@ async def test_disabled_button_class():
 
 @pytest.mark.asyncio
 async def test_force_reply_in_markups():
+    # In Layer 227 schema, ReplyInlineMarkup and ReplyKeyboardMarkup do not have a force_reply field.
+    # When force_reply is passed as truthy, write() raises NotImplementedError.
     force = types.ForceReply(selective=True)
     inline_markup = types.InlineKeyboardMarkup([[types.InlineKeyboardButton("Test", callback_data="cb")]], force_reply=force)
-    raw_inline = await inline_markup.write()
-    assert hasattr(raw_inline, "force_reply")
-    assert raw_inline.force_reply is not None
-    assert isinstance(raw_inline.force_reply, raw.types.ReplyKeyboardForceReply)
-    assert raw_inline.force_reply.selective is True
-
-    read_inline = types.InlineKeyboardMarkup.read(raw_inline)
-    assert read_inline.force_reply is not None
-    assert read_inline.force_reply.selective is True
+    with pytest.raises(NotImplementedError):
+        await inline_markup.write()
 
     reply_markup = types.ReplyKeyboardMarkup([["Button"]], force_reply=force)
-    raw_reply = await reply_markup.write()
-    assert hasattr(raw_reply, "force_reply")
-    assert raw_reply.force_reply is not None
-    assert isinstance(raw_reply.force_reply, raw.types.ReplyKeyboardForceReply)
+    with pytest.raises(NotImplementedError):
+        await reply_markup.write()
 
-    read_reply = types.ReplyKeyboardMarkup.read(raw_reply)
-    assert read_reply.force_reply is not None
-    assert read_reply.force_reply.selective is True
+    # Plain markups write successfully without force_reply
+    plain_inline = types.InlineKeyboardMarkup([[types.InlineKeyboardButton("Test", callback_data="cb")]])
+    raw_inline = await plain_inline.write()
+    assert isinstance(raw_inline, raw.types.ReplyInlineMarkup)
+
+    plain_reply = types.ReplyKeyboardMarkup([["Button"]])
+    raw_reply = await plain_reply.write()
+    assert isinstance(raw_reply, raw.types.ReplyKeyboardMarkup)
 
 @pytest.mark.asyncio
 async def test_chat_admin_rights_send_welcome_messages():
-    rights = types.ChatAdministratorRights(
+    # In Layer 227 schema, ChatAdminRights has no send_welcome_messages field.
+    # Setting can_send_welcome_messages=True raises NotImplementedError on write().
+    rights_custom = types.ChatAdministratorRights(
         can_send_welcome_messages=True,
         can_manage_tags=True,
         can_manage_direct_messages=True
     )
-    raw_rights = rights.write()
+    with pytest.raises(NotImplementedError):
+        rights_custom.write()
+
+    # Default rights (can_send_welcome_messages=False) write successfully.
+    rights_default = types.ChatAdministratorRights(
+        can_manage_tags=True,
+        can_manage_direct_messages=True
+    )
+    raw_rights = rights_default.write()
     assert isinstance(raw_rights, raw.types.ChatAdminRights)
-    assert raw_rights.send_welcome_messages is True
     assert raw_rights.manage_ranks is True
     assert raw_rights.manage_direct_messages is True
 
     read_rights = types.ChatAdministratorRights.read(raw_rights)
-    assert read_rights.can_send_welcome_messages is True
+    assert read_rights.can_send_welcome_messages is False
     assert read_rights.can_manage_tags is True
     assert read_rights.can_manage_direct_messages is True
 

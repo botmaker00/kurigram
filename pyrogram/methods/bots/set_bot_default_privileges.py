@@ -71,6 +71,8 @@ class SetBotDefaultPrivileges:
                 if inspect.isawaitable(admin_rights):
                     admin_rights = await admin_rights
             else:
+                if getattr(privileges, "can_send_welcome_messages", False):
+                    raise NotImplementedError("can_send_welcome_messages requires a newer TL layer")
                 admin_rights = raw.types.ChatAdminRights(
                     change_info=privileges.can_change_info,
                     post_messages=privileges.can_post_messages,
@@ -88,7 +90,6 @@ class SetBotDefaultPrivileges:
                     delete_stories=privileges.can_delete_stories,
                     manage_direct_messages=privileges.can_manage_direct_messages,
                     manage_ranks=privileges.can_manage_tags,
-                    send_welcome_messages=privileges.can_send_welcome_messages,
                     other=privileges.can_manage_chat
                 )
         else:

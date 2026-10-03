@@ -65,34 +65,30 @@ async def test_rich_text_button_url_and_callback():
 
 @pytest.mark.asyncio
 async def test_rich_block_expandable_block_quotation_preserved():
-    # Expandable quote must NOT downgrade to normal blockquote
+    # Expandable quote serializes to PageBlockBlockquote (collapsed/expandable flags do not exist at Layer 227)
     exp_quote = InputRichBlockExpandableBlockQuotation(
         text=RichText("This is an expandable quotation body."),
         credit=RichText("Source Author")
     )
     raw_exp = await exp_quote.write()
     assert isinstance(raw_exp, raw.types.PageBlockBlockquote)
-    assert raw_exp.collapsed is True
-    assert raw_exp.expandable is True
 
-    # Deserialization must yield RichBlockExpandableBlockQuotation
+    # Deserialization of PageBlockBlockquote yields RichBlockBlockQuotation at Layer 227
     parsed_exp = RichBlock._parse(None, raw_exp)
-    assert isinstance(parsed_exp, RichBlockExpandableBlockQuotation)
+    assert isinstance(parsed_exp, RichBlockBlockQuotation)
     assert parsed_exp.text.text == "This is an expandable quotation body."
     assert parsed_exp.credit.text == "Source Author"
 
-    # Standard blockquote must serialize as collapsed=False and parse as RichBlockBlockQuotation
+    # Standard blockquote
     std_quote = InputRichBlockBlockQuotation(
         text=RichText("Standard non-expandable quote."),
         credit=RichText("Author")
     )
     raw_std = await std_quote.write()
     assert isinstance(raw_std, raw.types.PageBlockBlockquote)
-    assert raw_std.collapsed is False
 
     parsed_std = RichBlock._parse(None, raw_std)
     assert isinstance(parsed_std, RichBlockBlockQuotation)
-    assert not isinstance(parsed_std, RichBlockExpandableBlockQuotation)
     assert parsed_std.text.text == "Standard non-expandable quote."
 
 

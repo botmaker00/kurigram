@@ -138,12 +138,13 @@ class SendMessageDraft:
                 if skip_entity_detection is not None:
                     rich_message.noautolink = skip_entity_detection
 
+        if can_stop or keep_on_stop:
+            raise NotImplementedError("can_stop / keep_on_stop requires a newer TL layer")
+
         if rich_message is not None:
             action = raw.types.InputSendMessageRichMessageDraftAction(
                 random_id=draft_id,
                 rich_message=rich_message,
-                can_stop=can_stop,
-                keep_on_stop=keep_on_stop,
             )
         else:
             action = raw.types.SendMessageTextDraftAction(
@@ -151,8 +152,6 @@ class SendMessageDraft:
                 text=await types.FormattedText(
                     text=text, parse_mode=parse_mode, entities=entities
                 ).write(self),
-                can_stop=can_stop,
-                keep_on_stop=keep_on_stop,
             )
 
         return await self.invoke(

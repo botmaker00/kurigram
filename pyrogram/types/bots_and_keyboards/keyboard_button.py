@@ -238,6 +238,8 @@ class KeyboardButton(Object):
                 if hasattr(user_privileges, "write"):
                     user_admin_rights = user_privileges.write()
                 else:
+                    if getattr(user_privileges, "can_send_welcome_messages", False):
+                        raise NotImplementedError("can_send_welcome_messages requires a newer TL layer")
                     user_admin_rights = raw.types.ChatAdminRights(
                         change_info=user_privileges.can_change_info,
                         post_messages=user_privileges.can_post_messages,
@@ -255,7 +257,6 @@ class KeyboardButton(Object):
                         manage_topics=user_privileges.can_manage_topics,
                         manage_direct_messages=user_privileges.can_manage_direct_messages,
                         manage_ranks=user_privileges.can_manage_tags,
-                        send_welcome_messages=user_privileges.can_send_welcome_messages,
                         other=user_privileges.can_manage_chat
                     )
             else:
@@ -265,6 +266,8 @@ class KeyboardButton(Object):
                 if hasattr(bot_privileges, "write"):
                     bot_admin_rights = bot_privileges.write()
                 else:
+                    if getattr(bot_privileges, "can_send_welcome_messages", False):
+                        raise NotImplementedError("can_send_welcome_messages requires a newer TL layer")
                     bot_admin_rights = raw.types.ChatAdminRights(
                         change_info=bot_privileges.can_change_info,
                         post_messages=bot_privileges.can_post_messages,
@@ -282,7 +285,6 @@ class KeyboardButton(Object):
                         manage_topics=bot_privileges.can_manage_topics,
                         manage_direct_messages=bot_privileges.can_manage_direct_messages,
                         manage_ranks=bot_privileges.can_manage_tags,
-                        send_welcome_messages=bot_privileges.can_send_welcome_messages,
                         other=bot_privileges.can_manage_chat
                     )
             else:

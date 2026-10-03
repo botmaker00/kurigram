@@ -148,18 +148,16 @@ async def test_roundtrip_caption():
 async def test_roundtrip_admin_rights():
     rights = types.ChatAdministratorRights(
         can_manage_chat=True,
-        can_send_welcome_messages=True,
         can_manage_direct_messages=True,
         can_manage_tags=True
     )
     raw_rights = rights.write()
     assert isinstance(raw_rights, raw.types.ChatAdminRights)
-    assert raw_rights.send_welcome_messages is True
     assert raw_rights.manage_direct_messages is True
     assert raw_rights.manage_ranks is True
 
     read_rights = types.ChatAdministratorRights.read(raw_rights)
-    assert read_rights.can_send_welcome_messages is True
+    assert read_rights.can_send_welcome_messages is False
     assert read_rights.can_manage_direct_messages is True
     assert read_rights.can_manage_tags is True
 

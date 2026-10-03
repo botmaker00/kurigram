@@ -81,15 +81,9 @@ class InlineKeyboardMarkup(Object):
 
             rows.append(raw.types.KeyboardButtonRow(buttons=buttons))
 
-        markup = raw.types.ReplyInlineMarkup(rows=rows)
-        if self.force_reply is not None:
-            if isinstance(self.force_reply, types.ForceReply):
-                markup.force_reply = await self.force_reply.write(client)
-            elif self.force_reply is True:
-                markup.force_reply = await types.ForceReply().write(client)
-            else:
-                markup.force_reply = self.force_reply
-        return markup
+        if self.force_reply:
+            raise NotImplementedError("force_reply on InlineKeyboardMarkup requires a newer TL layer")
+        return raw.types.ReplyInlineMarkup(rows=rows)
 
         # There seems to be a Python issues with nested async comprehensions.
         # See: https://bugs.python.org/issue33346

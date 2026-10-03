@@ -424,7 +424,7 @@ class RichBlock(Object):
         if isinstance(self, (RichBlockExpandableBlockQuotation, InputRichBlockExpandableBlockQuotation)):
             t = await _to_raw_text(getattr(self, "text", None))
             credit_txt = await _to_raw_text(getattr(self, "credit", None))
-            return raw.types.PageBlockBlockquote(text=t, caption=credit_txt, collapsed=True, expandable=True)
+            return raw.types.PageBlockBlockquote(text=t, caption=credit_txt)
 
         if isinstance(self, (RichBlockPullQuotation, InputRichBlockPullQuotation)):
             t = await _to_raw_text(getattr(self, "text", None))
@@ -434,7 +434,7 @@ class RichBlock(Object):
         if isinstance(self, (RichBlockBlockQuotation, InputRichBlockBlockQuotation)):
             t = await _to_raw_text(getattr(self, "text", None))
             credit_txt = await _to_raw_text(getattr(self, "credit", None))
-            return raw.types.PageBlockBlockquote(text=t, caption=credit_txt, collapsed=False, expandable=False)
+            return raw.types.PageBlockBlockquote(text=t, caption=credit_txt)
 
         if isinstance(self, (RichBlockDetails, InputRichBlockDetails)):
             title_obj = getattr(self, "title", None) or getattr(self, "summary", None)
@@ -516,7 +516,7 @@ class RichBlock(Object):
             d = getattr(self, "document", None)
             doc_id = d if isinstance(d, int) else (getattr(d, "id", 0) if d else 0)
             cap = await _to_raw_caption(getattr(self, "caption", None))
-            return raw.types.PageBlockDocument(document_id=doc_id, caption=cap, document=d)
+            return raw.types.PageBlockDocument(document_id=doc_id, caption=cap)
 
         if isinstance(self, (RichBlockVoiceNote, InputRichBlockVoiceNote)):
             vn = getattr(self, "voice_note", None)

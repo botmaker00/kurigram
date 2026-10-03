@@ -165,6 +165,8 @@ class ChatAdministratorRights(Object):
         )
 
     def write(self, client=None) -> "raw.base.ChatAdminRights":
+        if self.can_send_welcome_messages:
+            raise NotImplementedError("can_send_welcome_messages requires a newer TL layer")
         return raw.types.ChatAdminRights(
             anonymous=self.is_anonymous,
             change_info=self.can_change_info,
@@ -182,7 +184,6 @@ class ChatAdministratorRights(Object):
             manage_topics=self.can_manage_topics,
             manage_direct_messages=self.can_manage_direct_messages,
             manage_ranks=self.can_manage_tags,
-            send_welcome_messages=self.can_send_welcome_messages,
             other=self.can_manage_chat,
         )
 
