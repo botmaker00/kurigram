@@ -381,6 +381,8 @@ class Client(Methods):
         else:
             self.storage = SQLiteStorage(self.name, workdir=self.workdir)
 
+        self.listeners = {listener_type: [] for listener_type in pyrogram.types.ListenerTypes}
+
         self.dispatcher: Dispatcher = Dispatcher(self)
 
         self.rnd_id = MsgId
