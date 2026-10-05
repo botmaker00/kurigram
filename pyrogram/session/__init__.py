@@ -17,4 +17,4 @@
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
 from .auth import Auth
-from .session import Session
+from .session import Session, MediaWindow, media_window

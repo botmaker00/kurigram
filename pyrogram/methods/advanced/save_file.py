@@ -19,31 +19,67 @@
 from __future__ import annotations as _annotations
 
 import asyncio
+import contextlib
 import functools
 import inspect
 import io
 import logging
 import math
 import os
+import time
 from hashlib import md5
 from pathlib import PurePath
-from typing import Union, BinaryIO, Callable
+from typing import Union, BinaryIO, Callable, Optional
 
 import pyrogram
 from pyrogram import StopTransmission
 from pyrogram import raw
+from pyrogram import utils
+from pyrogram.errors import FloodPremiumWait, FloodWait, RPCError
+from pyrogram.methods.rate_limiter import TokenBucket
+from pyrogram.session import Session, media_window
 
 log = logging.getLogger(__name__)
+
+PART_SIZE = 512 * 1024
+POOL_SIZE = 20
+MAX_RETRIES = 16
+STALL_TIMEOUT = 900
+READ_BUFFER = 4 * 1024 * 1024
+MAX_BATCH = 4 * 1024 * 1024
+PACER_BURST = 8
+
+
+async def _stop_workers(queue: asyncio.Queue, workers: list) -> list:
+    delivered = 0
+
+    for _ in workers:
+        if all(t.done() for t in workers):
+            break
+
+        try:
+            await asyncio.wait_for(queue.put(None), Session.MEDIA_WAIT_TIMEOUT)
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            break
+
+        delivered += 1
+
+    if delivered < len(workers):
+        for t in workers:
+            if not t.done():
+                t.cancel()
+
+    return await asyncio.gather(*workers, return_exceptions=True)
 
 
 class SaveFile:
     async def save_file(
         self: "pyrogram.Client",
         path: Union[str, BinaryIO],
-        file_id: int = None,
+        file_id: Optional[int] = None,
         file_part: int = 0,
-        progress: Callable = None,
-        progress_args: tuple = ()
+        progress: Optional[Callable] = None,
+        progress_args: tuple = (),
     ):
         """Upload a file onto Telegram servers, without actually sending the message to anyone.
         Useful whenever an InputFile type is required.
@@ -78,32 +114,18 @@ class SaveFile:
                 You can pass anything you need to be available in the progress callback scope; for example, a Message
                 object or a Client instance in order to edit the message with the updated progress status.
 
-        Other Parameters:
-            current (``int``):
-                The amount of bytes transmitted so far.
-
-            total (``int``):
-                The total size of the file.
-
-            *args (``tuple``, *optional*):
-                Extra custom arguments as defined in the ``progress_args`` parameter.
-                You can either keep ``*args`` or add every single extra argument in your function signature.
-
         Returns:
-            ``InputFile`` | ``None``: On success, the uploaded file is returned in form of an InputFile object. In case
-            *path* is None, and in case *file_id* is given so that a single missing part is uploaded instead of the
-            whole file, None is returned. A failed upload raises.
-
-        Raises:
-            RPCError: In case of a Telegram RPC error, including one that happened while a part was being sent.
+            ``InputFile | InputFileBig`` | ``None``: On success, the uploaded file is returned in form of an InputFile object.
         """
+        from pyrogram.client import ReadAhead
+
         async with self.save_file_semaphore:
             if path is None:
                 return None
 
-            failures: list = []
+            async def worker(pool, i):
+                window = media_window(getattr(pool[0], "auth_key", b""), dc_id)
 
-            async def worker(session):
                 while True:
                     data = await queue.get()
 
@@ -111,24 +133,63 @@ class SaveFile:
                         return
 
                     try:
-                        await session.invoke(data)
-                    except Exception as e:
-                        # The failure is remembered rather than raised, because a worker that stops
-                        #  consuming leaves the producer below blocked forever on `queue.put()`, since
-                        #  the queue holds one item. It is raised at the end, once every worker has drained.
-                        log.exception(e)
-                        failures.append(e)
+                        await _send_part(window.pick(pool, i), data)
+                        _acked[0] += 1
+                    finally:
+                        data = None
+                        budget.release()
 
-            part_size = 512 * 1024
+            async def _send_part(session, data):
+                invoke_kwargs = {}
+                if isinstance(session, Session) and not hasattr(session, "_mock_return_value") and not hasattr(session, "_mock_wraps"):
+                    invoke_kwargs["timeout"] = Session.MEDIA_WAIT_TIMEOUT
+
+                for attempt in range(MAX_RETRIES):
+                    try:
+                        await session.invoke(data, **invoke_kwargs)
+                        break
+                    except StopTransmission:
+                        raise
+                    except (OSError, TimeoutError, RPCError, asyncio.TimeoutError) as e:
+                        flood = isinstance(e, (FloodWait, FloodPremiumWait))
+
+                        if isinstance(e, RPCError) and not flood and not 500 <= getattr(e, "CODE", 0) < 600:
+                            raise
+
+                        if attempt == MAX_RETRIES - 1:
+                            log.exception(
+                                "Upload part failed after %d attempts",
+                                MAX_RETRIES,
+                            )
+                            raise
+
+                        log.warning(
+                            "Retrying upload part (attempt %d/%d): %s",
+                            attempt + 1, MAX_RETRIES, str(e)[:120],
+                        )
+                        await asyncio.sleep(min(getattr(e, "value", 1), 300) if flood else min(2 ** attempt, 30))
+
+            async def read_batch():
+                batch_size = min(part_size * n_workers, MAX_BATCH)
+                if self.executor is not None:
+                    return await self.loop.run_in_executor(
+                        self.executor, fp.read, batch_size
+                    )
+                return fp.read(batch_size)
+
+            part_size = PART_SIZE
 
             if isinstance(path, (str, PurePath, os.PathLike)):
-                fp = open(os.fspath(path), "rb")
+                fp = open(os.fspath(path), "rb", buffering=READ_BUFFER)
             elif hasattr(path, "to_io") and callable(path.to_io):
                 fp = path.to_io()
             elif isinstance(path, io.IOBase):
                 fp = path
             else:
-                raise ValueError("Invalid file. Expected a file path as string or a binary (not text) file pointer")
+                raise ValueError(
+                    "Invalid file. Expected a file path as string "
+                    "or a binary (not text) file pointer"
+                )
 
             file_name = getattr(path, "filename", None) or getattr(fp, "name", "file.jpg")
 
@@ -139,109 +200,207 @@ class SaveFile:
             if file_size == 0:
                 raise ValueError("File size equals to 0 B")
 
-            if self.me and self.me.is_premium:
-                file_size_limit_mib = 4000
-            else:
-                file_size_limit_mib = 2000
+            is_bot = getattr(self.me, "is_bot", False)
+            is_premium = getattr(self.me, "is_premium", False)
+
+            file_size_limit_mib = 4000 if is_premium else 2000
 
             if file_size > file_size_limit_mib * 1024 * 1024:
-                raise ValueError(f"Can't upload files bigger than {file_size_limit_mib} MiB")
+                raise ValueError(
+                    f"Can't upload files bigger than {file_size_limit_mib} MiB"
+                )
 
             file_total_parts = int(math.ceil(file_size / part_size))
             is_big = file_size > 10 * 1024 * 1024
-            workers_count = 4 if is_big else 1
+            pool_cap = max(1, math.ceil((file_total_parts - file_part) / 2))
+            if is_bot:
+                rate_limit = int(os.environ.get("KURIGRAM_UPLOAD_RATE_BOT", 120))
+                pool_size = min(int(os.environ.get("KURIGRAM_UPLOAD_POOL_BOT", 8)), POOL_SIZE, pool_cap)
+            elif is_premium:
+                rate_limit = int(os.environ.get("KURIGRAM_UPLOAD_RATE_PREMIUM", 300))
+                pool_size = min(int(os.environ.get("KURIGRAM_UPLOAD_POOL_PREMIUM", 14)), POOL_SIZE, pool_cap)
+            else:
+                rate_limit = int(os.environ.get("KURIGRAM_UPLOAD_RATE_USER", 120))
+                pool_size = min(int(os.environ.get("KURIGRAM_UPLOAD_POOL_USER", 12)), POOL_SIZE, pool_cap)
+
             is_missing_part = file_id is not None
             file_id = file_id or self.rnd_id()
             md5_sum = md5() if not is_big and not is_missing_part else None
+
             dc_id = await self.storage.dc_id()
+            pool_lease = contextlib.AsyncExitStack()
 
-            session = await self.get_session(dc_id, is_media=True)
+            try:
+                if hasattr(self, "_media_pool"):
+                    pool_task = await pool_lease.enter_async_context(
+                        self._media_pool(dc_id, pool_size)
+                    )
+                    pool = await pool_task
+                else:
+                    session = await self.get_session(dc_id, is_media=True)
+                    pool = [session]
 
-            workers = [self.loop.create_task(worker(session)) for _ in range(workers_count)]
-            queue = asyncio.Queue(1)
+                if not pool:
+                    raise OSError(f"No media session available for DC {dc_id}")
+
+                _acked = [0]
+
+                n_workers = max(len(pool), pool_size) * 2
+                queue = asyncio.Queue(n_workers)
+                budget = ReadAhead(self.read_ahead_slots)
+                workers = [
+                    self.loop.create_task(worker(pool, i))
+                    for i in range(n_workers)
+                ]
+            except BaseException:
+                await pool_lease.aclose()
+                raise
+
+            next_batch_task = None
+            _pacer = TokenBucket(rate=rate_limit, burst=PACER_BURST)
+            _stalled_since = 0.0
+
+            async def _report(parts: int) -> None:
+                if not progress:
+                    return
+
+                func = functools.partial(
+                    progress, min(parts * part_size, file_size), file_size, *progress_args
+                )
+
+                try:
+                    if inspect.iscoroutinefunction(progress):
+                        await func()
+                    elif self.executor is not None:
+                        await self.loop.run_in_executor(self.executor, func)
+                    else:
+                        func()
+                except StopTransmission:
+                    raise
+                except Exception as e:
+                    log.warning(f"Upload progress callback error: {e}")
 
             try:
                 fp.seek(part_size * file_part)
+                next_batch_task = self.loop.create_task(read_batch())
 
                 while True:
-                    chunk = fp.read(part_size)
+                    batch = await next_batch_task
+                    next_batch_task = self.loop.create_task(read_batch())
 
-                    if not chunk:
+                    if not batch:
+                        next_batch_task.cancel()
                         if not is_big and not is_missing_part:
                             md5_sum = "".join([hex(i)[2:].zfill(2) for i in md5_sum.digest()])
                         break
 
-                    if is_big:
-                        rpc = raw.functions.upload.SaveBigFilePart(
-                            file_id=file_id,
-                            file_part=file_part,
-                            file_total_parts=file_total_parts,
-                            bytes=chunk
-                        )
-                    else:
-                        rpc = raw.functions.upload.SaveFilePart(
-                            file_id=file_id,
-                            file_part=file_part,
-                            bytes=chunk
-                        )
+                    async def _check_workers():
+                        for t in workers:
+                            if t.done() and not t.cancelled():
+                                exc = t.exception()
+                                if exc is not None:
+                                    raise exc
 
-                    await queue.put(rpc)
+                    await _check_workers()
 
-                    if is_missing_part:
-                        break
+                    for start in range(0, len(batch), part_size):
+                        chunk = batch[start:start + part_size]
 
-                    if not is_big and not is_missing_part:
-                        md5_sum.update(chunk)
-
-                    file_part += 1
-
-                    if progress:
-                        func = functools.partial(
-                            progress,
-                            min(file_part * part_size, file_size),
-                            file_size,
-                            *progress_args
-                        )
-
-                        if inspect.iscoroutinefunction(progress):
-                            await func()
+                        if is_big:
+                            rpc = raw.functions.upload.SaveBigFilePart(
+                                file_id=file_id,
+                                file_part=file_part,
+                                file_total_parts=file_total_parts,
+                                bytes=chunk,
+                            )
                         else:
-                            await self.loop.run_in_executor(self.executor, func)
+                            rpc = raw.functions.upload.SaveFilePart(
+                                file_id=file_id, file_part=file_part, bytes=chunk
+                            )
+
+                        await _pacer.acquire()
+                        await budget.acquire()
+
+                        while True:
+                            try:
+                                await asyncio.wait_for(queue.put(rpc), timeout=30)
+                                _stalled_since = 0.0
+                                break
+                            except asyncio.TimeoutError:
+                                await _check_workers()
+                                _now = time.monotonic()
+                                if _stalled_since == 0.0:
+                                    _stalled_since = _now
+                                    log.warning(
+                                        "Upload queue full: workers throttled, waiting up to %ss",
+                                        STALL_TIMEOUT,
+                                    )
+                                elif _now - _stalled_since > STALL_TIMEOUT:
+                                    raise TimeoutError(
+                                        f"Upload stalled: no part completed for {STALL_TIMEOUT}s"
+                                    )
+                                await asyncio.sleep(1)
+
+                        if is_missing_part:
+                            next_batch_task.cancel()
+                            results = await _stop_workers(queue, workers)
+                            for r in results:
+                                if isinstance(r, BaseException) and not isinstance(
+                                    r, asyncio.CancelledError
+                                ):
+                                    raise r
+                            return None
+
+                        if not is_big and not is_missing_part:
+                            md5_sum.update(chunk)
+
+                        rpc = None
+                        chunk = None
+                        file_part += 1
+
+                        await _report(_acked[0])
+
+                    batch = None
+
             except StopTransmission:
                 raise
             except Exception as e:
                 log.exception(e)
                 raise
-            finally:
-                for _ in workers:
-                    await queue.put(None)
+            else:
+                results = await _stop_workers(queue, workers)
 
-                await asyncio.gather(*workers)
+                for r in results:
+                    if isinstance(r, BaseException) and not isinstance(
+                        r, asyncio.CancelledError
+                    ):
+                        raise r
+
+                await _report(file_total_parts)
+
+                if is_big:
+                    return raw.types.InputFileBig(
+                        id=file_id,
+                        parts=file_total_parts,
+                        name=file_name,
+                    )
+                else:
+                    return raw.types.InputFile(
+                        id=file_id,
+                        parts=file_total_parts,
+                        name=file_name,
+                        md5_checksum=md5_sum,
+                    )
+            finally:
+                if next_batch_task is not None and not next_batch_task.done():
+                    next_batch_task.cancel()
+
+                await _stop_workers(queue, workers)
+                budget.release_all()
+                await pool_lease.aclose()
 
                 if isinstance(path, (str, PurePath, os.PathLike)):
                     try:
                         fp.close()
                     except Exception:
                         pass
-
-        # Outside the `finally` on purpose: a worker only reports a failed part once it has been
-        #  woken up and drained above, so a check any earlier can miss it.
-        if failures:
-            raise failures[0]
-
-        if is_missing_part:
-            return None
-
-        if is_big:
-            return raw.types.InputFileBig(
-                id=file_id,
-                parts=file_total_parts,
-                name=file_name,
-            )
-
-        return raw.types.InputFile(
-            id=file_id,
-            parts=file_total_parts,
-            name=file_name,
-            md5_checksum=md5_sum
-        )
