@@ -39,6 +39,8 @@ from pyrogram.errors import FloodPremiumWait, FloodWait, RPCError
 from pyrogram.methods.rate_limiter import TokenBucket
 from pyrogram.session import Session, media_window
 
+from random import choice
+
 log = logging.getLogger(__name__)
 
 PART_SIZE = 512 * 1024
@@ -93,7 +95,7 @@ class SaveFile:
         .. include:: /_includes/usable-by/users-bots.rst
 
         Parameters:
-            path (``str`` | ``BinaryIO``):
+            path (``str`` | ``BinaryIO`` | ``list`` | ``tuple`` ):
                 The path of the file you want to upload that exists on your local machine or a binary file-like object
                 with its attribute ".name" set for in-memory uploads.
 
@@ -178,7 +180,9 @@ class SaveFile:
                 return fp.read(batch_size)
 
             part_size = PART_SIZE
-
+            if isinstance(path, (list, tuple)):
+                path = choice(path)
+            
             if isinstance(path, (str, PurePath, os.PathLike)):
                 fp = open(os.fspath(path), "rb", buffering=READ_BUFFER)
             elif hasattr(path, "to_io") and callable(path.to_io):
